@@ -1,18 +1,39 @@
 Package: CNAppR
-Type: Package
-Title: What the Package Does (Title Case)
-Version: 0.1.0
+Title: Copy Number Alterations Analysis and Integrative Exploration
+Version: 1.0.0
 Authors@R: c(
-    person(
-      "Jane", "Doe",
-      email = "jane@example.com",
-      role = c("aut", "cre")
-    )
-  )
-Description: More about what it does (maybe more than one line).
-    Continuation lines should be indented.
-License: What license is it under?
+    person("Sebastia", "Franch-Exposito", role = c("aut")),
+    person("CNApp", "Maintainer", email = "maintainer@example.com", role = c("cre")))
+Description: A comprehensive tool to perform integrative analysis of copy number
+    alterations (CNAs). It provides re-segmentation, scoring (BCS, FCS, GCS),
+    genome-wide profiling, and machine learning classification.
+License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
-URL: https://github.com/Albertotorrejon/CNAppR
-BugReports: https://github.com/Albertotorrejon/CNAppR/issues
+RoxygenNote: 7.3.3
+Imports:
+    ggplot2,
+    dplyr,
+    magrittr,
+    survival,
+    survminer,
+    plotly,
+    heatmaply,
+    randomForest,
+    caret,
+    doBy,
+    parallel,
+    GenomicFeatures,
+    GenomicAlignments,
+    GenVisR,
+    shiny,
+    shinydashboard,
+    shinyBS,
+    shinyjs,
+    shinythemes,
+    shinyWidgets
+Suggests:
+    testthat (>= 3.0.0),
+    knitr,
+    rmarkdown
+Config/testthat/edition: 3
