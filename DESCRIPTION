@@ -1,18 +1,26 @@
 Package: CNAppR
 Type: Package
-Title: What the Package Does (Title Case)
-Version: 0.1.0
+Title: Copy Number Alteration Analysis in R
+Version: 1.0.0
 Authors@R: c(
-    person(
-      "Jane", "Doe",
-      email = "jane@example.com",
-      role = c("aut", "cre")
-    )
-  )
-Description: More about what it does (maybe more than one line).
-    Continuation lines should be indented.
-License: What license is it under?
+    person("Laia", "Bassaganyas", role = "aut"),
+    person("Jordi", "Camps", role = "aut"),
+    person("Sebastià", "Franch-Expósito", role = "aut"),
+    person("Alberto", "Torrejón", email = "alberto.torrejon@email.com", role = c("aut","cre"))
+)
+Description: Tools for copy number alteration (CNA) analysis including 
+    re-segmentation, CNA scoring, visualization, clinical association tests,
+    and Shiny-based exploration.
+License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
-URL: https://github.com/Albertotorrejon/CNAppR
-BugReports: https://github.com/Albertotorrejon/CNAppR/issues
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
+Imports:
+    ggplot2,
+    stats,
+    utils,
+    RColorBrewer
+Suggests:
+    shiny,
+    randomForest
