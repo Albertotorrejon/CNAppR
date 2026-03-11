@@ -74,6 +74,7 @@ resegment_sample <- function(data,
 
   # Initialize columns
   file$length <- file$loc.end - file$loc.start
+
   if (!"BAF" %in% colnames(file)) file$BAF <- 0.5
 
   # Load cytoband reference
@@ -184,7 +185,10 @@ resegment_sample <- function(data,
   new_file[[1]] <- new_file[[1]][new_file[[1]]$chr != 24 & new_file[[1]]$chr != 23, ]
 
   # Step 4: Iterative fusion of segments
+<<<<<<< HEAD
   prev_nrow <- nrow(new_file[[1]])
+=======
+>>>>>>> 097d039b581beff1ffe6a196977c4a6ff8808b2d
   for (zz in 2:n_loops) {
     new_file[[zz]] <- data.frame(
       ID = NA_character_, chr = NA_integer_, loc.start = NA_integer_,
@@ -235,12 +239,24 @@ resegment_sample <- function(data,
       new_file[[zz]][k, ] <- new_file[[zz - 1]][nrow(new_file[[zz - 1]]), ]
     }
 
+<<<<<<< HEAD
     curr_nrow <- nrow(new_file[[zz]][!is.na(new_file[[zz]]$ID), ])
 
     # Converged: no segments were merged in this iteration
     if (curr_nrow >= prev_nrow) break
 
     prev_nrow <- curr_nrow
+=======
+    # Check convergence (no changes from previous iteration)
+    if (zz > 2) {
+      if (nrow(new_file[[zz]]) == nrow(new_file[[zz - 1]])) {
+        # Check if data is identical (convergence)
+        if (all.equal(new_file[[zz]], new_file[[zz - 1]]) == TRUE) {
+          break
+        }
+      }
+    }
+>>>>>>> 097d039b581beff1ffe6a196977c4a6ff8808b2d
   }
 
   filt <- new_file[[length(new_file)]]

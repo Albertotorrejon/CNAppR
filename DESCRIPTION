@@ -1,26 +1,35 @@
 Package: CNAppR
-Type: Package
-Title: Copy Number Alteration Analysis in R
-Version: 1.0.0
+Title: Copy Number Alterations Analysis and Integrative Exploration
+Version: 1.1.0
 Authors@R: c(
-    person("Laia", "Bassaganyas", role = "aut"),
-    person("Jordi", "Camps", role = "aut"),
-    person("Sebastià", "Franch-Expósito", role = "aut"),
-    person("Alberto", "Torrejón", email = "alberto.torrejon@email.com", role = c("aut","cre"))
-)
-Description: Tools for copy number alteration (CNA) analysis including 
-    re-segmentation, CNA scoring, visualization, clinical association tests,
-    and Shiny-based exploration.
+    person("Sebastia", "Franch-Exposito", role = c("aut")),
+    person("CNApp", "Maintainer", email = "maintainer@example.com", role = c("cre")))
+Description: A comprehensive tool to perform integrative analysis of copy number
+    alterations (CNAs). It provides re-segmentation, scoring (BCS, FCS, GCS),
+    genome-wide profiling, and machine learning classification. The package
+    operates as a standalone R library without requiring a graphical interface.
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
-Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.2
+RoxygenNote: 7.3.3
 Imports:
     ggplot2,
-    stats,
-    utils,
-    RColorBrewer
+    dplyr,
+    magrittr,
+    survival,
+    survminer,
+    plotly,
+    heatmaply,
+    randomForest,
+    caret,
+    doBy,
+    parallel,
+    RColorBrewer,
+    GenomicFeatures,
+    GenomicAlignments,
+    GenVisR
 Suggests:
-    shiny,
-    randomForest
+    testthat (>= 3.0.0),
+    knitr,
+    rmarkdown
+Config/testthat/edition: 3
