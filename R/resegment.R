@@ -158,6 +158,16 @@ resegment_sample <- function(data,
 
 #' Internal: Iterative Re-segmentation
 #'
+#' Performs iterative segment merging following CNApp resegmentation logic.
+#' Two segments are merged if they:
+#'   - Are on the same chromosome
+#'   - Have similar seg.mean values (dev_btw_segs)
+#'   - Have similar BAF values (dev_baf)
+#'   - Are nearby (max_dist_segm or percent_dist threshold)
+#'
+#' Merged segment: start = s1$loc.start, end = s2$loc.end,
+#' seg.mean/BAF = weighted means by segment length.
+#'
 #' @keywords internal
 .resegment_iterative <- function(file,
                                  min_length,
@@ -167,86 +177,108 @@ resegment_sample <- function(data,
                                  dev_tozero,
                                  dev_baf) {
   n_loops <- 100
-
+  
   # Step 1: Filter by minimum length
-  new_file <- list()
-  new_file[[1]] <- file[file$length > min_length, ]
-
-  if (nrow(new_file[[1]]) == 0) {
+  filt <- file[file$length > min_length, , drop = FALSE]
+  
+  if (nrow(filt) == 0) {
     stop("No segments remain after minimum length filtering.")
   }
-
+  
   # Step 2: Set near-zero segments to 0
-  near_zero <- new_file[[1]]$seg.mean > -dev_tozero & new_file[[1]]$seg.mean < dev_tozero
-  new_file[[1]]$seg.mean[near_zero] <- 0
-
+  near_zero <- filt$seg.mean > -dev_tozero & filt$seg.mean < dev_tozero
+  filt$seg.mean[near_zero] <- 0
+  
   # Step 3: Remove sex chromosomes (keep only 1-22)
-  new_file[[1]] <- new_file[[1]][new_file[[1]]$chr != 24 & new_file[[1]]$chr != 23, ]
-
-  # Step 4: Iterative fusion of segments
-  prev_nrow <- nrow(new_file[[1]])
-  for (zz in 2:n_loops) {
-    new_file[[zz]] <- data.frame(
-      ID = NA_character_, chr = NA_integer_, loc.start = NA_integer_,
-      loc.end = NA_integer_, seg.mean = NA_real_, length = NA_integer_,
-      BAF = NA_real_, stringsAsFactors = FALSE
-    )
-
-    k <- 1
-    flag <- 0
-
-    for (i in 1:(nrow(new_file[[zz - 1]]) - 1)) {
-      if (flag == 1) {
-        flag <- 0
-        next
-      }
-
-      s1 <- new_file[[zz - 1]][i, ]
-      new_file[[zz]][k, ] <- s1
-      k <- k + 1
-
-      s2 <- new_file[[zz - 1]][i + 1, ]
-
-      # Check if segments should be merged
-      if (s1$chr == s2$chr) {
-        dist <- s2$loc.start - s1$loc.end
-        mean_diff <- abs(s1$seg.mean - s2$seg.mean)
-        baf_diff <- abs(s1$BAF - s2$BAF)
-
-        # Condition for merging
-        merge_dist <- dist < max_dist_segm
-        merge_dev <- mean_diff < dev_btw_segs
-        merge_baf <- baf_diff < dev_baf
-        merge_pct <- (dist / (s1$length + s2$length)) * 100 < percent_dist
-
-        if (merge_dist && merge_dev && merge_baf && merge_pct) {
-          # Merge segments
-          new_file[[zz]][k, "loc.end"] <- s2$loc.end
-          new_file[[zz]][k, "seg.mean"] <- mean(c(s1$seg.mean, s2$seg.mean))
-          new_file[[zz]][k, "BAF"] <- mean(c(s1$BAF, s2$BAF))
-          new_file[[zz]][k, "length"] <- new_file[[zz]][k, "loc.end"] - new_file[[zz]][k, "loc.start"]
-          flag <- 1
+  filt <- filt[filt$chr != 24 & filt$chr != 23, , drop = FALSE]
+  
+  if (nrow(filt) == 0) {
+    stop("No segments remain after sex chromosome removal.")
+  }
+  
+  # Step 4: Sort segments by chromosome and start position
+  filt <- filt[order(filt$chr, filt$loc.start), , drop = FALSE]
+  rownames(filt) <- NULL
+  
+  # Step 5: Iterative fusion of segments
+  prev_nrow <- nrow(filt)
+  
+  for (zz in 1:n_loops) {
+    merged_any <- FALSE
+    result_list <- list()
+    
+    i <- 1
+    while (i <= nrow(filt)) {
+      if (i == nrow(filt)) {
+        # Last segment, just add it
+        result_list[[length(result_list) + 1]] <- filt[i, , drop = FALSE]
+        i <- i + 1
+      } else {
+        s1 <- filt[i, , drop = FALSE]
+        s2 <- filt[i + 1, , drop = FALSE]
+        
+        # Check if segments should be merged
+        should_merge <- FALSE
+        
+        if (s1$chr == s2$chr) {
+          dist <- s2$loc.start - s1$loc.end
+          mean_diff <- abs(s1$seg.mean - s2$seg.mean)
+          baf_diff <- abs(s1$BAF - s2$BAF)
+          
+          # All conditions must be met for merging
+          merge_dist <- dist < max_dist_segm
+          merge_dev <- mean_diff < dev_btw_segs
+          merge_baf <- baf_diff < dev_baf
+          merge_pct <- (dist / (s1$length + s2$length)) * 100 < percent_dist
+          
+          should_merge <- merge_dist && merge_dev && merge_baf && merge_pct
+        }
+        
+        if (should_merge) {
+          # Merge s1 and s2 into a new segment
+          merged_segment <- s1
+          merged_segment$loc.end <- s2$loc.end
+          
+          # Weighted mean by segment length for seg.mean
+          w1 <- s1$length
+          w2 <- s2$length
+          merged_segment$seg.mean <- (s1$seg.mean * w1 + s2$seg.mean * w2) / (w1 + w2)
+          
+          # Weighted mean by segment length for BAF
+          merged_segment$BAF <- (s1$BAF * w1 + s2$BAF * w2) / (w1 + w2)
+          
+          # Recalculate length
+          merged_segment$length <- merged_segment$loc.end - merged_segment$loc.start
+          
+          result_list[[length(result_list) + 1]] <- merged_segment
+          
+          merged_any <- TRUE
+          i <- i + 2  # Skip both s1 and s2
+        } else {
+          # No merge, keep s1 and move to next
+          result_list[[length(result_list) + 1]] <- s1
+          i <- i + 1
         }
       }
     }
-
-    # Add last segment if not merged
-    if (flag == 0) {
-      new_file[[zz]][k, ] <- new_file[[zz - 1]][nrow(new_file[[zz - 1]]), ]
+    
+    # Combine all result rows into a dataframe
+    if (length(result_list) > 0) {
+      filt <- do.call(rbind, result_list)
+      rownames(filt) <- NULL
     }
-
-    curr_nrow <- nrow(new_file[[zz]][!is.na(new_file[[zz]]$ID), ])
-
+    
+    curr_nrow <- nrow(filt)
+    
     # Converged: no segments were merged in this iteration
-    if (curr_nrow >= prev_nrow) break
-
+    if (!merged_any || curr_nrow >= prev_nrow) break
+    
     prev_nrow <- curr_nrow
   }
-
-  filt <- new_file[[length(new_file)]]
-  filt <- filt[!is.na(filt$ID), ]
+  
+  # Ensure length is recalculated correctly
   filt$length <- filt$loc.end - filt$loc.start
-
+  
   return(filt)
 }
 
