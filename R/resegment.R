@@ -177,36 +177,36 @@ resegment_sample <- function(data,
                                  dev_tozero,
                                  dev_baf) {
   n_loops <- 100
-  
+
   # Step 1: Filter by minimum length
   filt <- file[file$length > min_length, , drop = FALSE]
-  
+
   if (nrow(filt) == 0) {
     stop("No segments remain after minimum length filtering.")
   }
-  
+
   # Step 2: Set near-zero segments to 0
   near_zero <- filt$seg.mean > -dev_tozero & filt$seg.mean < dev_tozero
   filt$seg.mean[near_zero] <- 0
-  
+
   # Step 3: Remove sex chromosomes (keep only 1-22)
   filt <- filt[filt$chr != 24 & filt$chr != 23, , drop = FALSE]
-  
+
   if (nrow(filt) == 0) {
     stop("No segments remain after sex chromosome removal.")
   }
-  
+
   # Step 4: Sort segments by chromosome and start position
   filt <- filt[order(filt$chr, filt$loc.start), , drop = FALSE]
   rownames(filt) <- NULL
-  
+
   # Step 5: Iterative fusion of segments
   prev_nrow <- nrow(filt)
-  
+
   for (zz in 1:n_loops) {
     merged_any <- FALSE
     result_list <- list()
-    
+
     i <- 1
     while (i <= nrow(filt)) {
       if (i == nrow(filt)) {
@@ -216,42 +216,42 @@ resegment_sample <- function(data,
       } else {
         s1 <- filt[i, , drop = FALSE]
         s2 <- filt[i + 1, , drop = FALSE]
-        
+
         # Check if segments should be merged
         should_merge <- FALSE
-        
+
         if (s1$chr == s2$chr) {
           dist <- s2$loc.start - s1$loc.end
           mean_diff <- abs(s1$seg.mean - s2$seg.mean)
           baf_diff <- abs(s1$BAF - s2$BAF)
-          
+
           # All conditions must be met for merging
           merge_dist <- dist < max_dist_segm
           merge_dev <- mean_diff < dev_btw_segs
           merge_baf <- baf_diff < dev_baf
           merge_pct <- (dist / (s1$length + s2$length)) * 100 < percent_dist
-          
+
           should_merge <- merge_dist && merge_dev && merge_baf && merge_pct
         }
-        
+
         if (should_merge) {
           # Merge s1 and s2 into a new segment
           merged_segment <- s1
           merged_segment$loc.end <- s2$loc.end
-          
+
           # Weighted mean by segment length for seg.mean
           w1 <- s1$length
           w2 <- s2$length
           merged_segment$seg.mean <- (s1$seg.mean * w1 + s2$seg.mean * w2) / (w1 + w2)
-          
+
           # Weighted mean by segment length for BAF
           merged_segment$BAF <- (s1$BAF * w1 + s2$BAF * w2) / (w1 + w2)
-          
+
           # Recalculate length
           merged_segment$length <- merged_segment$loc.end - merged_segment$loc.start
-          
+
           result_list[[length(result_list) + 1]] <- merged_segment
-          
+
           merged_any <- TRUE
           i <- i + 2  # Skip both s1 and s2
         } else {
@@ -261,24 +261,24 @@ resegment_sample <- function(data,
         }
       }
     }
-    
+
     # Combine all result rows into a dataframe
     if (length(result_list) > 0) {
       filt <- do.call(rbind, result_list)
       rownames(filt) <- NULL
     }
-    
+
     curr_nrow <- nrow(filt)
-    
+
     # Converged: no segments were merged in this iteration
     if (!merged_any || curr_nrow >= prev_nrow) break
-    
+
     prev_nrow <- curr_nrow
   }
-  
+
   # Ensure length is recalculated correctly
   filt$length <- filt$loc.end - filt$loc.start
-  
+
   return(filt)
 }
 
@@ -315,11 +315,21 @@ resegment_sample <- function(data,
   n_focal <- 0
 
   for (i in seq_len(nrow(filt))) {
-    chr <- as.numeric(gsub("chr", "", filt$chr[i]))
+    chr_val <- gsub("chr", "", filt$chr[i])
+
+    if (chr_val %in% c("X", "Y", "23", "24")) next
+
+    chr <- suppressWarnings(as.numeric(chr_val))
+    if (is.na(chr)) next
 
     # Get chromosome length from l4
     chr_len <- l4[l4$chr == chr, "length"]
-    if (length(chr_len) == 0) chr_len <- 1e9 # fallback
+
+    if (length(chr_len) == 0) {
+      chr_len <- 1e9
+    } else {
+      chr_len <- chr_len[1]
+    }
 
     # ===== CHROMOSOMAL-LEVEL =====
     if (filt$length[i] > chrom_percent * chr_len) {
