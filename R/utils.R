@@ -350,4 +350,3 @@ get_cytobands_data <- function(level = "level3", genome_build = "hg38") {
     stop("Unknown cytoband level: ", level)
   }
 }
-

@@ -108,6 +108,8 @@ resegment_sample <- function(data,
       if (inside_log <= 2^loss_lim) inside_log <- 2^loss_lim
       log2(inside_log)
     }, r = r)
+    # Handle NA values
+    file$seg.mean <- ifelse(is.na(file$seg.mean), 0, file$seg.mean)
   }
 
   # Cap seg.mean values when NO purity
@@ -335,8 +337,8 @@ resegment_sample <- function(data,
     if (filt$length[i] > chrom_percent * chr_len) {
       w <- classify_cna(filt$seg.mean[i], low_gain, normal_gain, high_gain, low_loss, normal_loss, high_loss)
 
-      # CN-LOH check
-      if (!is.na(filt$BAF[i]) && filt$BAF[i] > (1 - min_baf) && filt$BAF[i] < min_baf) {
+      # CN-LOH check 
+      if (w != 0 && abs(filt$seg.mean[i]) < 0.1 && !is.na(filt$BAF[i]) && filt$BAF[i] > (1 - min_baf) && filt$BAF[i] < min_baf) {
         filt$type[i] <- "CN-LOH"
       }
 
