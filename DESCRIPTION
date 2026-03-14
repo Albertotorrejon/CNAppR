@@ -1,17 +1,27 @@
 Package: CNAppR
 Title: Copy Number Alterations Analysis and Integrative Exploration
 Version: 1.1.0
+
 Authors@R: c(
-    person("Sebastia", "Franch-Exposito", role = c("aut")),
-    person("CNApp", "Maintainer", email = "maintainer@example.com", role = c("cre")))
-Description: A comprehensive tool to perform integrative analysis of copy number
-    alterations (CNAs). It provides re-segmentation, scoring (BCS, FCS, GCS),
-    genome-wide profiling, and machine learning classification. The package
-    operates as a standalone R library without requiring a graphical interface.
+    person("Alberto", "Torrejón Aquino",
+           role = c("aut", "cre"),
+           email = "alberto.torrejon.aquino@gmail.com",
+           comment = "Package maintainer"),
+    person("Laia", "Bassaganyas", role = "aut"),
+    person("Jordi", "Camps", role = "aut"),
+    person("Sebastià", "Franch-Expósito", role = "aut")
+)
+
+Description: CNAppR provides re-segmentation, scoring (BCS, FCS, GCS),
+genome-wide profiling, and machine learning classification for the
+analysis of somatic copy number alterations (CNAs). The package operates
+as a standalone R library without requiring a graphical interface.
+
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
 RoxygenNote: 7.3.3
+
 Imports:
     ggplot2,
     dplyr,
@@ -28,8 +38,10 @@ Imports:
     GenomicFeatures,
     GenomicAlignments,
     GenVisR
+
 Suggests:
     testthat (>= 3.0.0),
     knitr,
     rmarkdown
+
 Config/testthat/edition: 3
