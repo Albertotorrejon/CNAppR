@@ -1,6 +1,6 @@
 # CNAppR
 
-**CNAppR** is an R package for integrative analysis of somatic Copy Number Alterations (CNAs) in cancer genomics. It implements the analytical core of the original [CNApp](https://github.com/SebastinaFranch/CNApp) tool as a standalone R library.
+**CNAppR** is an R package for integrative analysis of somatic Copy Number Alterations (CNAs) in cancer genomics. It implements the analytical core of the original [CNApp](https://github.com/ait5/CNApp) tool as a standalone R library.
 
 ## Features
 
