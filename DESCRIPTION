@@ -3,13 +3,13 @@ Title: Copy Number Alterations Analysis and Integrative Exploration
 Version: 1.1.0
 
 Authors@R: c(
-    person("Alberto", "Torrejón Aquino",
+    person("Alberto", "Torrejon Aquino",
            role = c("aut", "cre"),
            email = "alberto.torrejon.aquino@gmail.com",
            comment = "Package maintainer"),
     person("Laia", "Bassaganyas", role = "aut"),
     person("Jordi", "Camps", role = "aut"),
-    person("Sebastià", "Franch-Expósito", role = "aut")
+    person("Sebastia", "Franch Exposito", role = "aut")
 )
 
 Description: CNAppR provides re-segmentation, scoring (BCS, FCS, GCS),
