@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CNApp</title>
+  <style>
+    :root {
+      --bg: #f7f7f7;
+      --text: #222;
+      --muted: #5c5c5c;
+      --accent: #58aee3;
+      --accent-dark: #3e97ce;
+      --nav-gap: 2.25rem;
+      --container: 1200px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .container {
+      width: min(100% - 64px, var(--container));
+      margin: 0 auto;
+    }
+
+    header {
+      padding: 28px 0 10px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+    }
+
+    .logo-small {
+      font-size: 2.2rem;
+      font-weight: 300;
+      letter-spacing: 0.5px;
+      color: #444;
+    }
+
+    nav ul {
+      display: flex;
+      list-style: none;
+      gap: var(--nav-gap);
+      margin: 0;
+      padding: 0;
+      font-size: 1.25rem;
+      font-weight: 700;
+    }
+
+    nav a {
+      color: #222;
+      text-decoration: none;
+    }
+
+    nav a:hover {
+      color: var(--accent-dark);
+    }
+
+    .hero {
+      min-height: calc(100vh - 110px);
+      display: grid;
+      grid-template-columns: 1.05fr 1fr;
+      align-items: center;
+      gap: 32px;
+      padding: 30px 0 60px;
+    }
+
+    .left {
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+      align-items: flex-start;
+    }
+
+    .brand-block {
+      position: relative;
+      min-height: 520px;
+      width: 100%;
+    }
+
+    .dna-wrap {
+      position: absolute;
+      left: 30px;
+      top: 10px;
+      width: 620px;
+      max-width: 100%;
+      height: 500px;
+    }
+
+    .dna-shadow {
+      position: absolute;
+      inset: 0;
+      filter: blur(8px);
+      opacity: 0.28;
+    }
+
+    .dna-main {
+      position: absolute;
+      inset: 0;
+    }
+
+    .title-group {
+      position: absolute;
+      left: 275px;
+      top: 140px;
+      text-align: left;
+    }
+
+    .title-group h1 {
+      margin: 0;
+      font-size: clamp(3rem, 6vw, 5.4rem);
+      font-weight: 300;
+      letter-spacing: 1px;
+    }
+
+    .title-group p {
+      margin: 10px 0 0;
+      font-size: clamp(1.25rem, 2vw, 2rem);
+      line-height: 1.15;
+      color: #444;
+      max-width: 430px;
+    }
+
+    .subtitle {
+      font-size: 1.2rem;
+      line-height: 1.5;
+      color: #555;
+      max-width: 420px;
+      margin-left: 12px;
+    }
+
+    .cta {
+      margin-left: 12px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 180px;
+      padding: 18px 34px;
+      border-radius: 999px;
+      color: white;
+      text-decoration: none;
+      font-size: 1.15rem;
+      font-weight: 700;
+      background: linear-gradient(180deg, #63b8ee 0%, #4ca6de 100%);
+      box-shadow: 0 16px 28px rgba(88, 174, 227, 0.28);
+      transition: transform 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    .cta:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 18px 30px rgba(88, 174, 227, 0.34);
+    }
+
+    .right {
+      min-height: 100%;
+    }
+
+    @media (max-width: 1024px) {
+      nav ul {
+        gap: 1.1rem;
+        font-size: 1rem;
+      }
+
+      .hero {
+        grid-template-columns: 1fr;
+        align-items: start;
+      }
+
+      .right {
+        display: none;
+      }
+
+      .brand-block {
+        min-height: 430px;
+      }
+
+      .dna-wrap {
+        left: 0;
+        width: 100%;
+        height: 410px;
+      }
+
+      .title-group {
+        left: 38%;
+        top: 118px;
+      }
+    }
+
+    @media (max-width: 680px) {
+      .container {
+        width: min(100% - 32px, var(--container));
+      }
+
+      .topbar {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      nav ul {
+        flex-wrap: wrap;
+      }
+
+      .brand-block {
+        min-height: 350px;
+      }
+
+      .dna-wrap {
+        height: 330px;
+      }
+
+      .title-group {
+        left: 42%;
+        top: 110px;
+      }
+
+      .title-group p {
+        max-width: 220px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container topbar">
+      <div class="logo-small">CNApp</div>
+      <nav>
+        <ul>
+          <li><a href="#">HOME</a></li>
+          <li><a href="#">USER GUIDE</a></li>
+          <li><a href="#">TOOL</a></li>
+          <li><a href="#">ABOUT</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container hero">
+    <section class="left">
+      <div class="brand-block">
+        <div class="dna-wrap">
+          <svg class="dna-shadow" viewBox="0 0 700 520" aria-hidden="true">
+            <path d="M430 20 C 510 110, 510 195, 430 280 C 355 360, 355 430, 440 505" fill="none" stroke="#000" stroke-width="34" stroke-linecap="round"/>
+            <path d="M220 130 C 140 215, 140 300, 220 380" fill="none" stroke="#000" stroke-width="34" stroke-linecap="round"/>
+          </svg>
+
+          <svg class="dna-main" viewBox="0 0 700 520" aria-label="CNApp logo illustration">
+            <path d="M430 20 C 510 110, 510 195, 430 280 C 355 360, 355 430, 440 505" fill="none" stroke="#7f7f7f" stroke-width="16" stroke-linecap="round" opacity="0.75"/>
+            <path d="M220 130 C 140 215, 140 300, 220 380" fill="none" stroke="#7f7f7f" stroke-width="16" stroke-linecap="round" opacity="0.75"/>
+
+            <g transform="translate(138 175) rotate(-15)">
+              <path d="M0 52 C 48 5, 124 5, 172 52 L 172 104 C 124 57, 48 57, 0 104 Z" fill="#5f8fdb" opacity="0.95"/>
+              <path d="M0 0 C 48 47, 124 47, 172 0 L 172 52 C 124 99, 48 99, 0 52 Z" fill="#dd6a6a" opacity="0.95"/>
+              <path d="M14 50 L 34 34 L 28 66 Z" fill="#ffffff" opacity="0.8"/>
+              <path d="M48 44 L 72 18 L 64 64 Z" fill="#ffffff" opacity="0.8"/>
+              <path d="M90 44 L 116 16 L 110 66 Z" fill="#ffffff" opacity="0.8"/>
+              <path d="M128 42 L 152 18 L 148 60 Z" fill="#ffffff" opacity="0.8"/>
+              <path d="M18 8 L 42 34 L 10 34 Z" fill="#ffffff" opacity="0.8"/>
+              <path d="M58 2 L 88 34 L 44 30 Z" fill="#ffffff" opacity="0.8"/>
+              <path d="M102 4 L 130 34 L 86 32 Z" fill="#ffffff" opacity="0.8"/>
+              <path d="M138 6 L 162 34 L 124 30 Z" fill="#ffffff" opacity="0.8"/>
+            </g>
+          </svg>
+        </div>
+
+        <div class="title-group">
+          <h1>CNApp</h1>
+          <p>Copy Number Alterations<br/>integrative analysis</p>
+        </div>
+      </div>
+
+      <div class="subtitle">a web-based application for integrative analysis<br/>of copy number alterations</div>
+      <a class="cta" href="#">Launch Tool</a>
+    </section>
+
+    <aside class="right"></aside>
+  </main>
+</body>
+</html>
