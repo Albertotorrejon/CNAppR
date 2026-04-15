@@ -252,24 +252,24 @@ prepare_annotation_data <- function(data, annot_filepath, sep = "\t", dec = ".",
 
   # Build matrix for annotation columns
   n_mat <- as.data.frame(matrix(NA_character_, ncol = ncol(annot_df), nrow = nrow(data)))
-  colnames(n_mat) <- paste0("annot_", colnames(annot_df))
+  colnames(n_mat) <- colnames(annot_df)
 
   new_df <- cbind(data, n_mat)
 
-  # Match and fill annotation data
+  # Fill annotation data per sample
   for (jj in seq_along(names_in_annot)) {
     n_sample <- as.character(names_in_annot[jj])
     rows_in_df <- which(data[[sample_var]] == n_sample)
 
     if (length(rows_in_df) == 0) {
-      warning("Sample '", n_sample, "' in annotation not found in main data.")
+      warning("Sample '", n_sample, "' from annotation file not found in main data.")
       next
     }
 
     row <- annot_df[jj, ]
 
     for (xx in seq_len(ncol(annot_df))) {
-      col_name <- paste0("annot_", colnames(annot_df)[xx])
+      col_name <- colnames(annot_df)[xx]
       class_var <- class(annot_df[, xx])
       term <- as.character(row[, xx])
 
@@ -281,10 +281,10 @@ prepare_annotation_data <- function(data, annot_filepath, sep = "\t", dec = ".",
     }
   }
 
-  # Remove duplicate sample_var column from annotation
-  dup_idx <- which(colnames(new_df) == paste0("annot_", sample_var))
-  if (length(dup_idx) > 0) {
-    new_df <- new_df[, -dup_idx]
+  # Remove duplicate sample_var column that comes from the annotation file
+  dup_idx <- which(colnames(new_df) == sample_var)
+  if (length(dup_idx) > 1) {
+    new_df <- new_df[, -dup_idx[2]]
   }
 
   return(new_df)
@@ -296,56 +296,116 @@ prepare_annotation_data <- function(data, annot_filepath, sep = "\t", dec = ".",
 #' Returns reference cytoband data (level 3 or level 4) for a given genome build.
 #'
 #' @param level Character "level3" or "level4" (default "level3").
-#' @param genome_build Character "hg38" or "hg19" (default "hg38").
 #'
-#' @return Data frame with cytoband information (chr, start, end, label, length, cum).
-#'
-#' @details
-#' Cytobands are cached in the package. If not found, function returns a warning
-#' and generates a minimal reference.
+#' @return Data frame with cytoband information (chr, start, end, label, length).
 #'
 #' @export
-get_cytobands_data <- function(level = "level3", genome_build = "hg38") {
-  # Try to load from package data
-  data_name <- paste0("cytoband_", level, "_", genome_build)
-
-  # For now, return pre-built cytoband data (simplified)
-  # In production, these would be stored in data/ directory and loaded via data()
+get_cytobands_data <- function(level = "level3") {
+  # Reference cytoband data (hg19/GRCh37)
+  # Source: aux_files/cytobands_level3_pq.csv and cytobands_level4_chrom.csv
+  # from the original CNApp Shiny repository
 
   if (level == "level3") {
-    # Simplified level3 cytoband data
+    # p/q arm definitions per chromosome (hg19)
+    # arms[1,"end"] is used as the centromere position in scoring
     l3 <- data.frame(
       chr = rep(1:24, each = 2),
       label = rep(c("p", "q"), 24),
-      start = c(0, 60000000, 0, 61000000, 0, 92000000, 0, 89000000, 0, 107000000,
-                0, 109000000, 0, 107000000, 0, 104000000, 0, 101000000, 0, 104000000,
-                0, 97000000, 0, 87000000, 0, 60000000, 0, 63000000, 0, 49000000,
-                0, 60000000, 0, 71000000, 0, 65000000, 0, 49000000, 0, 63000000,
-                0, 52000000, 0, 46000000, 0, 42000000, 0, 58000000),
-      end = c(60000000, 248956422, 61000000, 241137724, 92000000, 198295559,
-              89000000, 190214555, 107000000, 222339750, 109000000, 215808758,
-              107000000, 216331632, 104000000, 202521825, 101000000, 227355094,
-              104000000, 220622290, 97000000, 202878632, 87000000, 198914250,
-              60000000, 191044276, 63000000, 180041134, 49000000, 155384145,
-              60000000, 200142562, 71000000, 231808429, 65000000, 172126628,
-              49000000, 161802424, 63000000, 189997460, 52000000, 181538259,
-              46000000, 170805979, 42000000, 167473378, 58000000, 154259297)
+      start = c(
+        0, 125000000,   # chr1
+        0,  93300000,   # chr2
+        0,  91000000,   # chr3
+        0,  50400000,   # chr4
+        0,  48400000,   # chr5
+        0,  61000000,   # chr6
+        0,  59900000,   # chr7
+        0,  45600000,   # chr8
+        0,  49000000,   # chr9
+        0,  40200000,   # chr10
+        0,  53700000,   # chr11
+        0,  35800000,   # chr12
+        0,  17900000,   # chr13
+        0,  17600000,   # chr14
+        0,  19000000,   # chr15
+        0,  36600000,   # chr16
+        0,  24000000,   # chr17
+        0,  17200000,   # chr18
+        0,  26500000,   # chr19
+        0,  27500000,   # chr20
+        0,  13200000,   # chr21
+        0,  14700000,   # chr22
+        0,  60600000,   # chr23 (X)
+        0,  12500000    # chr24 (Y)
+      ),
+      end = c(
+        125000000, 249250621,   # chr1
+         93300000, 243199373,   # chr2
+         91000000, 198022430,   # chr3
+         50400000, 191154276,   # chr4
+         48400000, 180915260,   # chr5
+         61000000, 171115067,   # chr6
+         59900000, 159138663,   # chr7
+         45600000, 146364022,   # chr8
+         49000000, 141213431,   # chr9
+         40200000, 135534747,   # chr10
+         53700000, 135006516,   # chr11
+         35800000, 133851895,   # chr12
+         17900000, 115169878,   # chr13
+         17600000, 107349540,   # chr14
+         19000000, 102531392,   # chr15
+         36600000,  90354753,   # chr16
+         24000000,  81195210,   # chr17
+         17200000,  78077248,   # chr18
+         26500000,  59128983,   # chr19
+         27500000,  63025520,   # chr20
+         13200000,  48129895,   # chr21
+         14700000,  51304566,   # chr22
+         60600000, 155270560,   # chr23 (X)
+         12500000,  59373566    # chr24 (Y)
+      ),
+      stringsAsFactors = FALSE
     )
     l3$length <- l3$end - l3$start
     return(l3)
+
   } else if (level == "level4") {
-    # Level4: one row per chromosome (total length)
-    # These are aggregate lengths used for chromosomal-level classification
+    # Total chromosome lengths (hg19)
+    # Source: cytobands_level4_chrom.csv from the original repository
     l4 <- data.frame(
       chr = 1:24,
-      length = c(
-        248956422, 241137724, 198295559, 190214555, 222339750, 215808758,
-        216331632, 202521825, 227355094, 220622290, 202878632, 198914250,
-        191044276, 180041134, 155384145, 200142562, 231808429, 172126628,
-        161802424, 189997460, 181538259, 170805979, 167473378, 154259297
-      )
+      start = rep(0, 24),
+      end = c(
+        249250621,   # chr1
+        243199373,   # chr2
+        198022430,   # chr3
+        191154276,   # chr4
+        180915260,   # chr5
+        171115067,   # chr6
+        159138663,   # chr7
+        146364022,   # chr8
+        141213431,   # chr9
+        135534747,   # chr10
+        135006516,   # chr11
+        133851895,   # chr12
+        115169878,   # chr13
+        107349540,   # chr14
+        102531392,   # chr15
+         90354753,   # chr16
+         81195210,   # chr17
+         78077248,   # chr18
+         59128983,   # chr19
+         63025520,   # chr20
+         48129895,   # chr21
+         51304566,   # chr22
+        155270560,   # chr23 (X)
+         59373566    # chr24 (Y)
+      ),
+      label = rep("x", 24),
+      stringsAsFactors = FALSE
     )
+    l4$length <- l4$end - l4$start
     return(l4)
+
   } else {
     stop("Unknown cytoband level: ", level)
   }

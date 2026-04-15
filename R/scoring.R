@@ -49,9 +49,9 @@ calculate_cna_scores <- function(resegmented_list, sample_names = NULL) {
     reseg <- resegmented_list[[i]]
 
     # Count alterations by type
-    n_focal <- sum(reseg$classified == "Focal", na.rm = TRUE)
-    n_chromosomal <- sum(reseg$classified == "Chromosomal", na.rm = TRUE)
-    n_arm <- sum(reseg$classified == "Arm", na.rm = TRUE)
+    n_focal       <- sum(reseg$score[reseg$classified == "focal"], na.rm = TRUE)
+    n_chromosomal <- sum(reseg$score[reseg$classified == "chromosomal"], na.rm = TRUE)
+    n_arm         <- sum(reseg$score[reseg$classified == "arm"], na.rm = TRUE)
 
     fcs[i] <- n_focal
     bcs[i] <- n_chromosomal + n_arm
@@ -140,7 +140,6 @@ test_clinical_association <- function(scores, clinical_data, method = "both") {
 
   # Test each clinical variable against each score
   for (j in seq_len(ncol(clinical_data))) {
-    var_name <- colnames(clinical_data)[j]
     groups <- clinical_data[, j]
 
     # Determine variable class

@@ -1,3 +1,5 @@
+#' @importFrom rlang .data
+
 #' Plot Segmentation Before and After Re-segmentation
 #'
 #' Visualizes original segments and re-segmented results on a genome-wide plot.
@@ -12,7 +14,6 @@
 #'
 #' @return A ggplot2 object.
 #'
-#' @importFrom utils get_cytobands_data
 #'
 #' @details
 #' Creates a genome-wide plot with:
