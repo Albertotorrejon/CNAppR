@@ -4,3 +4,10 @@
 .httr-oauth
 .DS_Store
 .quarto
+
+# Archivos de output generados
+*.csv
+index.html
+inst/models/CNAppR_scores_adenomas.tsv
+inst/models/CNApp_scores_adenomas.tsv
+inst/models/CNAs_resegmentadas_adenomas.tsv
