@@ -381,10 +381,10 @@ resegment_sample <- function(data,
       }
     }
 
-    # If no condition classified this segment, mark it as normal
+    # If no condition classified this segment, mark it as diploid
     if (is.na(filt$classified[i])) {
-      filt$classified[i] <- "normal"
-      filt$type[i]       <- "normal"
+      filt$classified[i] <- "diploid"
+      filt$type[i]       <- "diploid"
       filt$score[i]      <- 0
       filt$intensity[i]  <- "None"
     }

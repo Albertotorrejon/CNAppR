@@ -8,7 +8,7 @@
 #'   classified, type.
 #' @param genome_build Character "hg19" or "hg38" (default "hg19").
 #' @param only_cna Logical. If TRUE (default), only annotates CNA segments
-#'   (excludes segments classified as "normal").
+#'   (excludes segments classified as "diploid").
 #'
 #' @return The input data frame with one additional column:
 #'   - genes: Character with gene names separated by "; ",
@@ -55,7 +55,7 @@ annotate_cna_genes <- function(segments, genome_build = "hg19", only_cna = TRUE)
   rows_to_annotate <- seq_len(nrow(segments))
   if (only_cna) {
     rows_to_annotate <- which(!is.na(segments$classified) &
-                                segments$classified != "normal")
+                                segments$classified != "diploid")
   }
 
   for (i in rows_to_annotate) {

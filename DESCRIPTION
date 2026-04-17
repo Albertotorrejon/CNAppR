@@ -5,15 +5,22 @@ Depends: R (>= 4.1)
 Authors@R: person("Alberto", "Torrejon Aquino",
            email = "alberto.torrejon.aquino@gmail.com",
            role = c("aut", "cre"))
-Description: CNAppR provides re-segmentation, scoring (BCS, FCS, GCS),
-    genome-wide profiling, and machine learning classification for the
-    analysis of somatic copy number alterations (CNAs). The package operates
-    as a standalone R library without requiring a graphical interface.
+Description: Provides re-segmentation, scoring (BCS, FCS, GCS),
+    genome-wide profiling, and gene annotation for the analysis of somatic
+    copy number alterations (CNAs). The package operates as a standalone R
+    library without requiring a graphical interface.
 License: MIT + file LICENSE
 Encoding: UTF-8
-LazyData: true
+URL: https://github.com/Albertotorrejon/CNAppR
+BugReports: https://github.com/Albertotorrejon/CNAppR/issues
 RoxygenNote: 7.3.3
-Imports:ggplot2,
+Imports:
+    ggplot2,
+    rlang,
+    RColorBrewer,
+    stats,
+    utils
+Suggests:
     dplyr,
     magrittr,
     survival,
@@ -24,8 +31,6 @@ Imports:ggplot2,
     caret,
     doBy,
     parallel,
-    RColorBrewer
-Suggests:
     GenomicFeatures,
     GenomicAlignments,
     GenVisR,
