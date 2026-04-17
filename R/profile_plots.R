@@ -1,4 +1,5 @@
 #' @importFrom rlang .data
+NULL
 
 #' Plot Segmentation Before and After Re-segmentation
 #'

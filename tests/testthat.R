@@ -1,4 +1,4 @@
 library(testthat)
-library(CNApp)
+library(CNAppR)
 
-test_check("CNApp")
+test_check("CNAppR")

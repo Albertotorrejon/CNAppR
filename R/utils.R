@@ -3,7 +3,7 @@
 #' Reads a copy number data file with configurable separators and decimal characters.
 #'
 #' @param filepath Character path to the data file (TSV, CSV, or TXT).
-#' @param sep Character field separator (default "\t" for tab).
+#' @param sep Character field separator (default tab character).
 #' @param dec Character decimal separator (default ".").
 #'
 #' @return A data frame with columns: ID, chr, loc.start, loc.end, seg.mean.

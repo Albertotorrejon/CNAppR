@@ -14,11 +14,11 @@ resegment_sample(
   dev_tozero = 0.16,
   dev_baf = 0.1,
   low_gain = 0.2,
-  normal_gain = log2(3/2),
-  high_gain = log2(4/2),
+  normal_gain = round(log2(3/2), 2),
+  high_gain = round(log2(4/2), 2),
   low_loss = -0.2,
-  normal_loss = log2(1/2),
-  high_loss = log2(0.6/2),
+  normal_loss = round(log2(1/2), 2),
+  high_loss = round(log2(0.6/2), 2),
   chrom_percent = 0.9,
   arm_percent = 0.5,
   focal_percent_low = 0.05,
@@ -48,19 +48,19 @@ resegment_sample(
 
 \item{low_gain}{Numeric low gain threshold in log2 (default 0.2).}
 
-\item{normal_gain}{Numeric normal gain threshold (default log2(3/2) ≈ 0.585).}
+\item{normal_gain}{Numeric normal gain threshold (default 0.58, i.e. round(log2(3/2), 2)).}
 
-\item{high_gain}{Numeric high gain threshold (default log2(4/2) = 1.0).}
+\item{high_gain}{Numeric high gain threshold (default 1.0, i.e. round(log2(4/2), 2)).}
 
 \item{low_loss}{Numeric low loss threshold (default -0.2).}
 
-\item{normal_loss}{Numeric normal loss threshold (default log2(1/2) ≈ -1.0).}
+\item{normal_loss}{Numeric normal loss threshold (default -1.0, i.e. round(log2(1/2), 2)).}
 
-\item{high_loss}{Numeric high loss threshold (default log2(0.6/2) ≈ -1.737).}
+\item{high_loss}{Numeric high loss threshold (default -1.74, i.e. round(log2(0.6/2), 2)).}
 
-\item{chrom_percent}{Numeric minimum coverage for chromosomal alterations (0-1, default 0.9).}
+\item{chrom_percent}{Numeric minimum coverage for chromosomal alterations (default 0.9).}
 
-\item{arm_percent}{Numeric minimum coverage for arm-level alterations (0-1, default 0.5).}
+\item{arm_percent}{Numeric minimum coverage for arm-level alterations (default 0.5).}
 
 \item{focal_percent_low}{Numeric focal alteration low threshold (default 0.05).}
 
@@ -75,24 +75,8 @@ resegment_sample(
 \item{skip_resegmentation}{Logical whether to skip re-segmentation (default FALSE).}
 }
 \value{
-Data frame (re-segmented) with additional columns:
-  - score, classified, type, intensity, weight, comments
+Data frame with additional columns: score, classified, type, intensity, weight, comments
 }
 \description{
-Performs iterative re-segmentation, fusion of similar segments, and classification
-of copy number alterations (CNA).
-}
-\details{
-This is the main CNA processing pipeline:
-1. Purity correction (re-centralization if purity provided)
-2. Minimum length filtering
-3. Iterative segment fusion (merging similar, nearby segments)
-4. Classification into chromosomal, arm-level, focal, and CN-LOH events
-}
-\examples{
-\dontrun{
-  data <- read_cna_file("sample.tsv")
-  result <- resegment_sample(data, sample_id = "sample_001")
-}
-
+Re-segment Copy Number Data
 }

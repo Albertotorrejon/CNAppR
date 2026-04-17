@@ -30,8 +30,8 @@ classify_cna(
 \item{high_loss}{Numeric high loss cutoff.}
 }
 \value{
-Integer (0=no alteration, 1=low intensity, 2=medium, 3=high).
+Integer (0=no alteration, 1=low, 2=medium, 3=high).
 }
 \description{
-Internal function that classifies a segment as gain/loss and returns intensity.
+Classify Single CNA Based on seg.mean
 }
