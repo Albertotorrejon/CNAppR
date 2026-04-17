@@ -39,7 +39,13 @@ head(scores)
 #> sample_1   12   4  1.2043...
 #> sample_2    3  11 -1.2043...
 
-# 4. Visualise
+# 4. Annotate CNA segments with overlapping genes
+annotated_list <- lapply(sample_ids, function(id) {
+  annotate_cna_genes(reseg_list[[id]], genome_build = "hg19")
+})
+names(annotated_list) <- sample_ids
+
+# 5. Visualise
 plot_segmentation(
   original_data    = data[data$ID == "sample_1", ],
   resegmented_data = reseg_list[["sample_1"]],
@@ -48,7 +54,7 @@ plot_segmentation(
 
 plot_cn_frequency(reseg_list)
 
-# 5. Test association with clinical variables (optional)
+# 6. Test association with clinical variables (optional)
 # clinical must be a data.frame with rownames = sample IDs
 results <- test_clinical_association(scores, clinical_data = clinical)
 ```
@@ -66,6 +72,35 @@ The main data file must be a tab-separated (or CSV) file with at least these col
 | `seg.mean` | numeric | Log2 copy number ratio |
 
 Optional columns: `BAF` (B-allele frequency), `purity` (tumour purity 0–1).
+
+## CNA classification
+
+Each segment is classified into one of four levels based on its length relative to the chromosome:
+
+| Level | Criterion | Description |
+|---|---|---|
+| **chromosomal** | > 90% of chromosome length | Whole-chromosome alteration |
+| **arm** | > 50% of a chromosome arm | Arm-level alteration (p or q) |
+| **focal** | < arm threshold | Sub-arm alteration, weighted by size |
+| **diploid** | No alteration detected | Segment within normal copy number range |
+
+Within each level, alterations are typed as **Gain**, **Loss** or **CN-LOH** (copy-neutral loss of heterozygosity, requires BAF column), and assigned an intensity (**Low**, **Medium**, **High**) based on the seg.mean thresholds.
+
+## Gene annotation
+
+`annotate_cna_genes()` maps each CNA segment to the genes it overlaps using RefSeq (UCSC) reference files bundled with the package for hg19 and hg38:
+
+```r
+reseg_annotated <- annotate_cna_genes(
+  reseg_list[["sample_1"]],
+  genome_build = "hg19",   # or "hg38"
+  only_cna     = TRUE      # skip diploid segments
+)
+
+# Gene names are returned as a semicolon-separated string in the `genes` column
+head(reseg_annotated[!is.na(reseg_annotated$genes),
+                     c("chr", "loc.start", "loc.end", "type", "genes")])
+```
 
 ## CNA score definitions
 
@@ -89,9 +124,11 @@ The key parameters for `resegment_sample()`:
 
 ## Dependencies
 
-Core: `ggplot2`, `dplyr`, `RColorBrewer`, `randomForest`, `caret`, `survival`, `survminer`
+Core (required): `ggplot2`, `rlang`, `RColorBrewer`
 
-Bioconductor: `GenomicFeatures`, `GenomicAlignments`, `GenVisR`
+Suggested: `randomForest`, `caret`, `survival`, `survminer`, `plotly`, `heatmaply`
+
+Bioconductor (optional): `GenomicFeatures`, `GenomicAlignments`, `GenVisR`
 
 ## License
 
