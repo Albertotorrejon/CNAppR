@@ -53,6 +53,15 @@ resegment_sample <- function(data,
   if (nrow(file) == 0) stop("Sample '", sample_id, "' not found in data.")
 
   file$length <- file$loc.end - file$loc.start
+
+  # Normalize chr column: remove "chr" prefix, map X->23, Y->24, drop unknowns
+  file$chr <- gsub("^chr", "", as.character(file$chr))
+  file$chr[file$chr == "X"] <- "23"
+  file$chr[file$chr == "Y"] <- "24"
+  file$chr <- suppressWarnings(as.numeric(file$chr))
+  file <- file[!is.na(file$chr), , drop = FALSE]
+  if (nrow(file) == 0) stop("No valid chromosomes found in sample '", sample_id, "'.")
+
   # If BAF column is absent, set to 0.5 (neutral value, does not affect analysis)
   if (is.null(file$BAF)) file$BAF <- 0.5
 

@@ -9,7 +9,7 @@ read_cna_file(filepath, sep = "\\t", dec = ".")
 \arguments{
 \item{filepath}{Character path to the data file (TSV, CSV, or TXT).}
 
-\item{sep}{Character field separator (default "\t" for tab).}
+\item{sep}{Character field separator (default tab character).}
 
 \item{dec}{Character decimal separator (default ".").}
 }

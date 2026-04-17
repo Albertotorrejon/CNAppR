@@ -8,8 +8,8 @@ annotate_cna_genes(segments, genome_build = "hg19", only_cna = TRUE)
 }
 \arguments{
 \item{segments}{Data frame with classified segments
-(output from resegment_sample()). Must contain: chr, loc.start, loc.end,
-classified, type.}
+(output from resegment_sample()). Must contain: chr, loc.start,
+loc.end, classified, type.}
 
 \item{genome_build}{Character "hg19" or "hg38" (default "hg19").}
 
@@ -27,14 +27,15 @@ fall within its coordinates.
 }
 \details{
 Reference files are RefSeq (UCSC) for hg19 and hg38, bundled with the
-package. A gene is considered within a segment if its coordinates overlap
-with the segment start and end positions.
+package. A gene is considered within a segment if its coordinates
+overlap with the segment start and end positions.
 }
 \examples{
 \dontrun{
-  reseg <- resegment_sample(data, sample_id = "muestra_01")
-  reseg_anotado <- annotate_cna_genes(reseg, genome_build = "hg19")
-  head(reseg_anotado[!is.na(reseg_anotado$genes), c("chr", "loc.start", "loc.end", "type", "genes")])
+  reseg <- resegment_sample(data, sample_id = "sample_01")
+  reseg_ann <- annotate_cna_genes(reseg, genome_build = "hg19")
+  head(reseg_ann[!is.na(reseg_ann$genes),
+                 c("chr", "loc.start", "loc.end", "type", "genes")])
 }
 
 }
