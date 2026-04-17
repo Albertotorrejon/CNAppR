@@ -20,11 +20,16 @@ devtools::install_github("Albertotorrejon/CNAppR")
 
 ## Quick start
 
+A demo dataset with 160 colorectal cancer samples (TCGA-COAD) is bundled with the package:
+
 ```r
 library(CNAppR)
 
-# 1. Load and validate your CNA data (TSV with columns: ID, chr, loc.start, loc.end, seg.mean)
-data <- read_cna_file("your_data.tsv")
+# Load the bundled demo dataset (160 COAD samples with clinical variables)
+data <- read_cna_file(system.file("models", "demo.txt", package = "CNAppR"))
+
+# Or load your own data
+# data <- read_cna_file("your_data.tsv")
 validate_cna_data(data)
 
 # 2. Re-segment and classify alterations for each sample
