@@ -49,6 +49,8 @@ resegment_sample <- function(data,
                              acrocentric = FALSE,
                              skip_resegmentation = FALSE) {
 
+  tryCatch({
+
   file <- data[data$ID == sample_id, ]
   if (nrow(file) == 0) stop("Sample '", sample_id, "' not found in data.")
 
@@ -135,6 +137,11 @@ resegment_sample <- function(data,
   )
 
   return(filt)
+
+  }, error = function(e) {
+    stop("Error processing sample '", sample_id, "': ", conditionMessage(e),
+         "\nCheck that the input data has the correct format (columns: ID, chr, loc.start, loc.end, seg.mean).")
+  })
 }
 
 
@@ -399,6 +406,17 @@ resegment_sample <- function(data,
     }
 
   } # cierra for
+
+  # Segments that were skipped early (e.g. Y chr, invalid chr) remain NA —
+  # they are regions smoothed back to diploid by the resegmentation algorithm.
+  na_cls <- is.na(filt$classified)
+  if (any(na_cls)) {
+    filt$classified[na_cls] <- "diploid"
+    filt$type[na_cls]       <- "diploid"
+    filt$score[na_cls]      <- 0L
+    filt$intensity[na_cls]  <- "None"
+    filt$weight[na_cls]     <- 0L
+  }
 
   attr(filt, "n_chromosomal") <- n_cna
   attr(filt, "n_arm") <- n_arm

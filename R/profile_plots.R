@@ -56,6 +56,7 @@ plot_segmentation <- function(original_data,
 
   # Function to add adjusted coordinates
   adjust_coords <- function(data, ref) {
+    if (is.null(data) || nrow(data) == 0) return(data)
     data$adj_start <- rep(NA_real_, nrow(data))
 
     for (i in seq_len(nrow(data))) {
