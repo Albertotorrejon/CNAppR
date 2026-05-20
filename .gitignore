@@ -5,9 +5,13 @@
 .DS_Store
 .quarto
 
-# Archivos de output generados
+# Generated output files
 *.csv
-index.html
 inst/models/CNAppR_scores_adenomas.tsv
 inst/models/CNApp_scores_adenomas.tsv
 inst/models/CNAs_resegmentadas_adenomas.tsv
+
+# BAM/BAI sequencing files (too large for git)
+inst/models/Bam\ y\ bai/
+*.bam
+*.bai

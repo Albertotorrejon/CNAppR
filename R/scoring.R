@@ -29,6 +29,13 @@
 #'
 #' @export
 calculate_cna_scores <- function(resegmented_list, sample_names = NULL) {
+  if (is.data.frame(resegmented_list)) {
+    resegmented_list <- list(resegmented_list)
+    if (!is.null(sample_names) && length(sample_names) == 1) {
+      names(resegmented_list) <- sample_names
+    }
+  }
+
   if (is.null(sample_names)) {
     sample_names <- names(resegmented_list)
     if (is.null(sample_names)) {
