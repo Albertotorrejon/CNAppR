@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="CNAppR: Copy Number Alteration Analysis in R. Somatic CNA analysis for cancer genomics with support for cfDNA and liquid biopsy data.">
+  <title>CNAppR • Copy Number Alteration Analysis in R</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,300;0,400;0,600;0,700;1,400&family=Source+Code+Pro:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    /* ── Reset ─────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding-top: 52px;
+      font-family: "Source Sans 3", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      font-size: 16px;
+      line-height: 1.55;
+      color: #212529;
+      background: #fff;
+    }
+
+    /* ── Container ──────────────────────────────── */
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+
+    /* ── Navbar ─────────────────────────────────── */
+    .navbar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 1000;
+      height: 52px;
+      background: #3d6fa4;
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      gap: 4px;
+    }
+    .navbar-brand {
+      color: #fff;
+      font-weight: 700;
+      font-size: 1.15rem;
+      text-decoration: none;
+      margin-right: 8px;
+      letter-spacing: -0.01em;
+    }
+    .navbar-version {
+      color: rgba(255,255,255,.6);
+      font-size: .8rem;
+      margin-right: auto;
+    }
+    .navbar-nav {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+    }
+    .navbar-nav a {
+      display: block;
+      color: rgba(255,255,255,.85);
+      text-decoration: none;
+      padding: 6px 14px;
+      font-size: .9rem;
+      border-radius: 3px;
+      transition: background .15s;
+    }
+    .navbar-nav a:hover,
+    .navbar-nav a.active {
+      background: rgba(0,0,0,.18);
+      color: #fff;
+    }
+
+    /* ── Page layout ────────────────────────────── */
+    .page { display: none; }
+    .page.active { display: block; }
+
+    .page-content {
+      padding: 2rem 0 3rem;
+    }
+
+    .row {
+      display: flex;
+      gap: 2.5rem;
+      align-items: flex-start;
+    }
+    .col-main { flex: 1 1 0; min-width: 0; }
+    .col-sidebar {
+      flex: 0 0 220px;
+      width: 220px;
+    }
+
+    /* ── Typography ─────────────────────────────── */
+    h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      margin: 0 0 .5rem;
+      line-height: 1.2;
+      letter-spacing: -0.02em;
+    }
+    h2 {
+      font-size: 1.35rem;
+      font-weight: 600;
+      margin: 2rem 0 .6rem;
+      padding-bottom: .3rem;
+      border-bottom: 1px solid #dee2e6;
+    }
+    h3 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      margin: 1.25rem 0 .4rem;
+      color: #3d6fa4;
+    }
+    p { margin: 0 0 1rem; }
+    a { color: #2b68b1; text-decoration: none; }
+    a:hover { text-decoration: underline; color: #1a4b85; }
+
+    /* ── Badges ─────────────────────────────────── */
+    .badges { margin: .6rem 0 1.25rem; line-height: 2; }
+    .badges img { vertical-align: middle; margin-right: 4px; }
+
+    /* ── Code ───────────────────────────────────── */
+    pre, code {
+      font-family: "Source Code Pro", SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: .875em;
+    }
+    code {
+      background: #f8f4f0;
+      color: #c0392b;
+      padding: .15em .4em;
+      border-radius: 2px;
+    }
+    pre {
+      background: #f8f9fa;
+      border: 1px solid #e9ecef;
+      padding: 1rem 1.25rem;
+      overflow-x: auto;
+      margin: 0 0 1.25rem;
+      line-height: 1.6;
+    }
+    pre code {
+      background: none;
+      color: #212529;
+      padding: 0;
+    }
+    /* R syntax highlighting */
+    .r-comment { color: #7f8c8d; }
+    .r-function { color: #2980b9; }
+    .r-string { color: #27ae60; }
+    .r-keyword { color: #8e44ad; }
+    .r-number { color: #e67e22; }
+
+    /* ── Alert / callout ────────────────────────── */
+    .callout-install {
+      background: #f8f9fa;
+      border-left: 3px solid #3d6fa4;
+      padding: .85rem 1.1rem;
+      margin: 0 0 1.25rem;
+      font-size: .95rem;
+    }
+    .callout-install p { margin: 0; }
+
+    /* ── Feature list ───────────────────────────── */
+    .feature-list {
+      padding-left: 1.4rem;
+      margin: 0 0 1.25rem;
+    }
+    .feature-list li { margin-bottom: .35rem; }
+
+    /* ── Sidebar ────────────────────────────────── */
+    .sidebar-section { margin-bottom: 1.5rem; }
+    .sidebar-section h2 {
+      font-size: .72rem;
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      color: #6c757d;
+      font-weight: 700;
+      border-bottom: 1px solid #dee2e6;
+      padding-bottom: .3rem;
+      margin: 0 0 .5rem;
+    }
+    .sidebar-section ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .sidebar-section li {
+      font-size: .9rem;
+      padding: .2rem 0;
+    }
+    .sidebar-section small {
+      color: #6c757d;
+      font-size: .8rem;
+    }
+
+    /* ── Reference table ────────────────────────── */
+    .ref-group { margin-bottom: 2.25rem; }
+    .ref-group h3 {
+      font-size: .85rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      color: #6c757d;
+      border-bottom: 1px solid #dee2e6;
+      padding-bottom: .3rem;
+      margin: 0 0 .6rem;
+    }
+    .ref-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .ref-table tr { border-bottom: 1px solid #f0f0f0; }
+    .ref-table tr:last-child { border-bottom: none; }
+    .ref-table td {
+      padding: .45rem .5rem;
+      vertical-align: top;
+      font-size: .9rem;
+    }
+    .ref-table td:first-child {
+      white-space: nowrap;
+      padding-right: 1.25rem;
+      min-width: 230px;
+    }
+    .ref-table td:first-child code {
+      background: none;
+      color: #2b68b1;
+      padding: 0;
+      font-size: .875em;
+    }
+    .ref-table td:first-child code:hover { text-decoration: underline; cursor: pointer; }
+    .ref-table td:last-child { color: #555; }
+
+    /* ── News / Changelog ───────────────────────── */
+    .news-version {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin: 2rem 0 .25rem;
+      letter-spacing: -0.01em;
+    }
+    .news-date {
+      font-size: .85rem;
+      color: #6c757d;
+      margin-bottom: .75rem;
+    }
+    .news-section-head {
+      font-size: .95rem;
+      font-weight: 600;
+      margin: 1rem 0 .35rem;
+      color: #212529;
+    }
+    .news-list {
+      padding-left: 1.4rem;
+      margin: 0 0 .75rem;
+    }
+    .news-list li { margin-bottom: .3rem; font-size: .9rem; }
+    .news-divider {
+      border: none;
+      border-top: 1px solid #dee2e6;
+      margin: 2.5rem 0;
+    }
+
+    /* ── Footer ─────────────────────────────────── */
+    footer {
+      background: #f8f9fa;
+      border-top: 1px solid #dee2e6;
+      padding: 1rem 0;
+      font-size: .825rem;
+      color: #6c757d;
+      margin-top: 1rem;
+    }
+    .footer-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 20px;
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: .5rem;
+    }
+    footer a { color: #6c757d; }
+    footer a:hover { color: #212529; }
+
+    /* ── Responsive ─────────────────────────────── */
+    @media (max-width: 720px) {
+      .row { flex-direction: column; }
+      .col-sidebar { width: 100%; }
+      .ref-table td:first-child { min-width: 0; white-space: normal; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Navbar ──────────────────────────────────── -->
+<nav class="navbar" role="navigation" aria-label="Site navigation">
+  <a class="navbar-brand" href="#" onclick="navigate('home');return false;">CNAppR</a>
+  <span class="navbar-version">1.1.0</span>
+  <ul class="navbar-nav">
+    <li><a href="#" id="nav-home" class="active" onclick="navigate('home');return false;">Home</a></li>
+    <li><a href="#" id="nav-reference" onclick="navigate('reference');return false;">Reference</a></li>
+    <li><a href="#" id="nav-news" onclick="navigate('news');return false;">News</a></li>
+    <li><a href="https://github.com/Albertotorrejon/CNAppR" target="_blank">GitHub</a></li>
+  </ul>
+</nav>
+
+<!-- ── Page: Home ──────────────────────────────── -->
+<div id="page-home" class="page active">
+  <div class="container page-content">
+    <div class="row">
+
+      <main class="col-main">
+
+        <h1>CNAppR</h1>
+        <div class="badges">
+          <img src="https://img.shields.io/badge/lifecycle-experimental-orange.svg" alt="Lifecycle: experimental">
+          <img src="https://img.shields.io/github/license/Albertotorrejon/CNAppR" alt="License: MIT">
+          <img src="https://img.shields.io/badge/R-%3E%3D4.1-276DC3.svg" alt="R >= 4.1">
+        </div>
+
+        <p>
+          CNAppR is an R package for the integrative analysis of somatic Copy Number Alterations (CNAs)
+          in cancer genomics. It extends the original
+          <a href="https://doi.org/10.7554/eLife.50267" target="_blank">CNApp 1.0</a>
+          framework with a native BAM processing pipeline, adding direct support for
+          whole-exome sequencing (WES), whole-genome sequencing (WGS), and liquid biopsy
+          cell-free DNA at low tumour fractions — including low-pass Nanopore long-read data.
+        </p>
+
+        <p>
+          The package is self-contained: pre-computed GC correction tables for hg19 and hg38
+          eliminate the need for a reference FASTA file, and there are no dependencies on
+          external command-line tools.
+        </p>
+
+        <h2>Installation</h2>
+
+        <p>CNAppR is available from GitHub. Install with <code>devtools</code>:</p>
+
+        <div class="callout-install">
+          <p>You can install the development version of CNAppR from GitHub:</p>
+        </div>
+
+<pre><code><span class="r-comment"># install.packages("devtools")</span>
+devtools<span class="r-keyword">::</span><span class="r-function">install_github</span>(<span class="r-string">"Albertotorrejon/CNAppR"</span>)</code></pre>
+
+        <h2>Usage</h2>
+
+        <h3>BAM pipeline</h3>
+
+        <p>
+          For samples where you have a BAM file, use <code>run_bam_pipeline()</code> to go
+          directly from raw reads to CNA scores:
+        </p>
+
+<pre><code><span class="r-keyword">library</span>(CNAppR)
+
+<span class="r-comment"># WES — Illumina whole-exome sequencing</span>
+result <span class="r-keyword">&lt;-</span> <span class="r-function">run_bam_pipeline</span>(
+  bam_path        <span class="r-keyword">=</span> <span class="r-string">"tumor.bam"</span>,
+  sequencing_type <span class="r-keyword">=</span> <span class="r-string">"illumina"</span>,
+  experiment_type <span class="r-keyword">=</span> <span class="r-string">"wes"</span>,
+  targets_bed     <span class="r-keyword">=</span> <span class="r-string">"capture_kit.bed"</span>,
+  genome_build    <span class="r-keyword">=</span> <span class="r-string">"hg19"</span>
+)
+
+<span class="r-comment"># WGS — Nanopore cfDNA, low-pass</span>
+result <span class="r-keyword">&lt;-</span> <span class="r-function">run_bam_pipeline</span>(
+  bam_path        <span class="r-keyword">=</span> <span class="r-string">"cfDNA.bam"</span>,
+  sequencing_type <span class="r-keyword">=</span> <span class="r-string">"nanopore"</span>,
+  experiment_type <span class="r-keyword">=</span> <span class="r-string">"wgs"</span>,
+  bin_size        <span class="r-keyword">=</span> <span class="r-number">500e3</span>,
+  genome_build    <span class="r-keyword">=</span> <span class="r-string">"hg38"</span>
+)
+
+result<span class="r-keyword">$</span>scores    <span class="r-comment"># data.frame: BFB, HRD, CIN</span>
+result<span class="r-keyword">$</span>segments  <span class="r-comment"># segmented copy number profile</span></code></pre>
+
+        <h3>Pre-segmented data</h3>
+
+        <p>
+          CNAppR also accepts pre-segmented tables from SNP arrays, aCGH, or any
+          upstream segmentation tool:
+        </p>
+
+<pre><code><span class="r-comment"># Load the bundled demo dataset (160 TCGA-COAD samples)</span>
+data <span class="r-keyword">&lt;-</span> <span class="r-function">read_cna_file</span>(<span class="r-function">system.file</span>(<span class="r-string">"models"</span>, <span class="r-string">"demo.txt"</span>, package <span class="r-keyword">=</span> <span class="r-string">"CNAppR"</span>))
+
+<span class="r-comment"># Re-segment and score all samples</span>
+ids        <span class="r-keyword">&lt;-</span> <span class="r-function">unique</span>(data<span class="r-keyword">$</span>ID)
+reseg_list <span class="r-keyword">&lt;-</span> <span class="r-function">lapply</span>(ids, <span class="r-keyword">function</span>(id) <span class="r-function">resegment_sample</span>(data, sample_id <span class="r-keyword">=</span> id))
+<span class="r-function">names</span>(reseg_list) <span class="r-keyword">&lt;-</span> ids
+
+scores <span class="r-keyword">&lt;-</span> <span class="r-function">calculate_cna_scores</span>(reseg_list)
+<span class="r-function">head</span>(scores)</code></pre>
+
+        <h2>Features</h2>
+
+        <ul class="feature-list">
+          <li>Native BAM processing — no FASTA, no external tools required</li>
+          <li>WES support with capture BED files and automatic target splitting</li>
+          <li>WGS support for Illumina short-read and Nanopore long-read data</li>
+          <li>cfDNA and liquid biopsy analysis at low tumour fractions</li>
+          <li>Pre-computed GC correction tables for hg19 and hg38 (500 kb–10 Mb bins)</li>
+          <li>Panel of Normals construction and application for tumour-only workflows</li>
+          <li>CBS segmentation with configurable sensitivity</li>
+          <li>CNA scores (FCS, BCS, GCS) validated on 160 TCGA-COAD samples</li>
+          <li>Gene annotation using bundled RefSeq tables for hg19 and hg38</li>
+          <li>Random forest classifier for molecular subtype prediction</li>
+          <li>Clinical association tests (parametric and non-parametric)</li>
+        </ul>
+
+      </main><!-- /col-main -->
+
+      <aside class="col-sidebar">
+
+        <div class="sidebar-section">
+          <h2>Links</h2>
+          <ul>
+            <li><a href="https://github.com/Albertotorrejon/CNAppR" target="_blank">GitHub repository</a></li>
+            <li><a href="https://doi.org/10.7554/eLife.50267" target="_blank">Original CNApp paper</a></li>
+            <li><a href="https://github.com/Albertotorrejon/CNAppR/issues" target="_blank">Report a bug</a></li>
+          </ul>
+        </div>
+
+        <div class="sidebar-section">
+          <h2>License</h2>
+          <ul>
+            <li>MIT</li>
+          </ul>
+        </div>
+
+        <div class="sidebar-section">
+          <h2>Authors</h2>
+          <ul>
+            <li>
+              Alberto Torrejón Aquino<br>
+              <small>Author, maintainer</small>
+            </li>
+            <li style="margin-top:.5rem;">
+              Sebastià Franch Expósito<br>
+              <small>Contributor (original CNApp)</small>
+            </li>
+            <li style="margin-top:.5rem;">
+              Laia Bassaganyas<br>
+              <small>Contributor (original CNApp)</small>
+            </li>
+            <li style="margin-top:.5rem;">
+              Jordi Camps<br>
+              <small>Contributor (original CNApp)</small>
+            </li>
+          </ul>
+        </div>
+
+        <div class="sidebar-section">
+          <h2>Citation</h2>
+          <ul>
+            <li>
+              <a href="https://doi.org/10.7554/eLife.50267" target="_blank">
+                Franch-Exposito <i>et al.</i>, <i>eLife</i> 2020
+              </a>
+            </li>
+          </ul>
+        </div>
+
+        <div class="sidebar-section">
+          <h2>Developed at</h2>
+          <ul>
+            <li><small>Universitat Oberta de Catalunya</small></li>
+            <li><small>TFM — Master's thesis, 2026</small></li>
+          </ul>
+        </div>
+
+      </aside><!-- /col-sidebar -->
+
+    </div><!-- /row -->
+  </div><!-- /container -->
+</div><!-- /page-home -->
+
+
+<!-- ── Page: Reference ─────────────────────────── -->
+<div id="page-reference" class="page">
+  <div class="container page-content">
+
+    <h1>Reference</h1>
+    <p>Documentation for all exported functions in CNAppR 1.1.0.</p>
+
+    <!-- BAM Pipeline -->
+    <div class="ref-group">
+      <h3>BAM Input Pipeline</h3>
+      <table class="ref-table">
+        <tbody>
+          <tr>
+            <td><code>read_bam_qc()</code></td>
+            <td>Read a BAM file, tile into bins, count reads, and return GC-corrected log2 ratios</td>
+          </tr>
+          <tr>
+            <td><code>run_cbs_segmentation()</code></td>
+            <td>Segment a log2-ratio track using Circular Binary Segmentation</td>
+          </tr>
+          <tr>
+            <td><code>build_pon()</code></td>
+            <td>Build a Panel of Normals from a set of normal-sample BAM files</td>
+          </tr>
+          <tr>
+            <td><code>run_bam_pipeline()</code></td>
+            <td>Full BAM-to-CNA-scores pipeline in a single call</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Segmentation & Scoring -->
+    <div class="ref-group">
+      <h3>Segmentation &amp; Scoring</h3>
+      <table class="ref-table">
+        <tbody>
+          <tr>
+            <td><code>resegment_sample()</code></td>
+            <td>Re-segment a sample with adjusted CBS parameters without repeating QC</td>
+          </tr>
+          <tr>
+            <td><code>calculate_cna_scores()</code></td>
+            <td>Compute Focal (FCS), Broad (BCS) and Global (GCS) CNA scores from a segment table</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Input & Validation -->
+    <div class="ref-group">
+      <h3>Input &amp; Validation</h3>
+      <table class="ref-table">
+        <tbody>
+          <tr>
+            <td><code>read_cna_file()</code></td>
+            <td>Read a tab-separated or CSV CNA segment file into a data frame</td>
+          </tr>
+          <tr>
+            <td><code>validate_cna_data()</code></td>
+            <td>Validate required columns and normalise chromosome labels in a CNA data frame</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Annotation -->
+    <div class="ref-group">
+      <h3>Annotation</h3>
+      <table class="ref-table">
+        <tbody>
+          <tr>
+            <td><code>annotate_cna_genes()</code></td>
+            <td>Map CNA segments to overlapping RefSeq genes using bundled hg19/hg38 tables</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Visualisation -->
+    <div class="ref-group">
+      <h3>Visualisation</h3>
+      <table class="ref-table">
+        <tbody>
+          <tr>
+            <td><code>plot_segmentation()</code></td>
+            <td>Plot original and re-segmented copy number profiles side by side for a single sample</td>
+          </tr>
+          <tr>
+            <td><code>plot_cn_frequency()</code></td>
+            <td>Plot genome-wide copy number gain/loss frequency across a sample collection</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Clinical -->
+    <div class="ref-group">
+      <h3>Clinical Analysis</h3>
+      <table class="ref-table">
+        <tbody>
+          <tr>
+            <td><code>test_clinical_association()</code></td>
+            <td>Parametric and non-parametric tests linking CNA scores to clinical variables</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div><!-- /page-reference -->
+
+
+<!-- ── Page: News ──────────────────────────────── -->
+<div id="page-news" class="page">
+  <div class="container page-content">
+
+    <h1>Changelog</h1>
+
+    <div class="news-version">CNAppR 1.1.0</div>
+    <div class="news-date">2026-05-20</div>
+
+    <div class="news-section-head">New features</div>
+    <ul class="news-list">
+      <li>
+        New BAM input pipeline: <code>read_bam_qc()</code>, <code>run_cbs_segmentation()</code>,
+        <code>build_pon()</code>, and <code>run_bam_pipeline()</code> allow end-to-end analysis
+        directly from <code>.bam</code> files without preprocessing or external tools.
+      </li>
+      <li>
+        Support for Illumina whole-exome sequencing (WES) with capture BED files.
+        Target intervals are automatically split into sub-bins for finer resolution.
+      </li>
+      <li>
+        Support for whole-genome sequencing (WGS) with both Illumina short-read and
+        Oxford Nanopore long-read data. Validated on low-pass cfDNA from colorectal
+        cancer patients (liquid biopsy).
+      </li>
+      <li>
+        Panel of Normals (<code>build_pon()</code>): construct a per-bin median reference
+        from normal-sample BAMs and apply it to tumour samples to remove systematic
+        technical biases in tumour-only workflows.
+      </li>
+      <li>
+        Pre-computed GC correction tables for hg19 and hg38 at bin sizes of 500 kb,
+        1 Mb, 2 Mb, and 10 Mb, bundled in <code>inst/extdata/</code>. No reference FASTA
+        download required.
+      </li>
+      <li>
+        Automatic chromosome naming normalisation: the BAM reader handles both UCSC
+        (<code>chr1</code>) and Ensembl/NCBI (<code>1</code>) conventions, including
+        <code>chrM</code> → <code>MT</code> conversion for GRCh37 BAMs.
+      </li>
+    </ul>
+
+    <div class="news-section-head">Changes</div>
+    <ul class="news-list">
+      <li>
+        <code>use_antitarget</code> now defaults to <code>FALSE</code> in
+        <code>read_bam_qc()</code>. Off-target antitarget bins are opt-in only;
+        typical users supplying a BAM and a capture BED do not need them.
+      </li>
+      <li>
+        <code>split_targets</code> defaults to <code>NULL</code>, which automatically
+        resolves to <code>TRUE</code> for WES experiments.
+      </li>
+      <li>
+        Removed <code>render_validation_report()</code> and the bundled
+        <code>validation_report.Rmd</code>. Validation analyses are no longer
+        distributed with the package.
+      </li>
+    </ul>
+
+    <hr class="news-divider">
+
+    <div class="news-version">CNAppR 1.0.0</div>
+    <div class="news-date">2025</div>
+
+    <div class="news-section-head">Initial release</div>
+    <ul class="news-list">
+      <li>
+        Re-segmentation engine based on iterative segment merging with configurable
+        deviation thresholds (<code>dev_btw_segs</code>, <code>dev_tozero</code>).
+      </li>
+      <li>
+        CNA scoring: Focal CNA Score (FCS), Broad CNA Score (BCS), and Global CNA Score (GCS),
+        validated on 160 TCGA-COAD colorectal cancer samples
+        (<a href="https://doi.org/10.7554/eLife.50267" target="_blank">Franch-Exposito <i>et al.</i>, <i>eLife</i> 2020</a>).
+      </li>
+      <li>
+        Gene annotation for hg19 and hg38 using bundled UCSC RefSeq reference tables.
+      </li>
+      <li>
+        Random forest classifier for molecular subtype prediction from CNA scores.
+        Pre-trained model included; no retraining required.
+      </li>
+      <li>
+        Visualisation: genome-wide segmentation plots (<code>plot_segmentation()</code>)
+        and copy number frequency heatmaps (<code>plot_cn_frequency()</code>).
+      </li>
+      <li>
+        Clinical association module: parametric and non-parametric tests linking CNA
+        scores to survival, treatment response, and clinical covariates.
+      </li>
+      <li>
+        Bundled demo dataset of 160 COAD samples with clinical variables
+        (<code>system.file("models", "demo.txt", package = "CNAppR")</code>).
+      </li>
+    </ul>
+
+  </div>
+</div><!-- /page-news -->
+
+
+<!-- ── Footer ──────────────────────────────────── -->
+<footer>
+  <div class="footer-inner">
+    <div>Developed by <a href="https://github.com/Albertotorrejon" target="_blank">Alberto Torrejón Aquino</a> &mdash; Universitat Oberta de Catalunya.</div>
+    <div>Based on <a href="https://doi.org/10.7554/eLife.50267" target="_blank">CNApp 1.0</a> by Franch-Expósito <i>et al.</i>, <i>eLife</i> 2020.</div>
+  </div>
+</footer>
+
+
+<script>
+  var pages = ['home', 'reference', 'news'];
+
+  function navigate(target) {
+    pages.forEach(function(p) {
+      var el = document.getElementById('page-' + p);
+      var nav = document.getElementById('nav-' + p);
+      if (p === target) {
+        el.classList.add('active');
+        if (nav) nav.classList.add('active');
+      } else {
+        el.classList.remove('active');
+        if (nav) nav.classList.remove('active');
+      }
+    });
+    window.scrollTo(0, 0);
+    history.pushState(null, '', '#' + target);
+  }
+
+  // Handle direct hash URLs
+  (function() {
+    var hash = window.location.hash.slice(1);
+    if (pages.indexOf(hash) !== -1) navigate(hash);
+  })();
+</script>
+
+</body>
+</html>
