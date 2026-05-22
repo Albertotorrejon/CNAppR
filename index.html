@@ -406,15 +406,18 @@
 <!-- Interactive Display -->
 <div class="lg:col-span-7 flex flex-col h-full min-h-[600px]">
 <div class="p-8 bg-primary/5 border border-primary/20 rounded-2xl mb-6 transition-all duration-300" id="feature-detail">
-<div class="flex gap-6 items-center">
+<div class="flex gap-6 items-center mb-5">
 <div class="w-14 h-14 bg-primary rounded-xl flex items-center justify-center text-white shrink-0 shadow-lg shadow-primary/20">
 <span class="material-symbols-outlined text-[32px]" id="feature-icon">clinical_notes</span>
 </div>
 <div class="space-y-1">
 <h4 class="text-headline-md font-bold text-primary" id="feature-title">test_clinical_association()</h4>
-<p class="text-body-md font-body-md text-on-surface-variant" id="feature-desc">Correlate CNA scores with clinical variables.</p>
+<p class="text-body-sm font-body-sm text-on-surface-variant" id="feature-desc">Correlate CNA scores with clinical variables.</p>
 </div>
 </div>
+<p class="text-body-sm text-on-surface leading-relaxed mb-4" id="feature-long-desc"></p>
+<div id="feature-params" class="space-y-2 mb-3"></div>
+<div id="feature-returns" class="hidden text-body-sm text-on-surface-variant bg-white/60 rounded-lg px-4 py-2 border border-primary/10"></div>
 </div>
 <div class="flex-grow bg-white border border-outline-variant rounded-[24px] shadow-xl overflow-hidden flex flex-col">
 <div class="bg-surface-container-low border-b border-outline-variant px-6 py-4 flex justify-between items-center">
@@ -529,63 +532,227 @@
 </footer>
 <script>
     const snippets = {
-        'run_bam_pipeline': `<span class="text-outline italic"># Wrapper: Execute full end-to-end analysis</span>
-<span class="text-clinical-blue font-bold">pipeline_results</span> &lt;- run_bam_pipeline(
-  bam_dir = <span class="text-secondary font-medium">"data/samples/"</span>,
-  genome = <span class="text-secondary font-medium">"hg38"</span>,
-  output_dir = <span class="text-secondary font-medium">"results/"</span>
+        'run_bam_pipeline': `<span class="text-outline italic"># Full pipeline: BAM → scores in one call</span>
+<span class="text-clinical-blue font-bold">result</span> &lt;- run_bam_pipeline(
+  bam_path        = <span class="text-secondary font-medium">"tumor.bam"</span>,
+  sequencing_type = <span class="text-secondary font-medium">"illumina"</span>,
+  experiment_type = <span class="text-secondary font-medium">"wes"</span>,
+  targets_bed     = <span class="text-secondary font-medium">"capture_kit.bed"</span>,
+  genome_build    = <span class="text-secondary font-medium">"hg19"</span>,
+  gc_correction   = TRUE
 )
 
-<span class="text-outline italic"># Result overview</span>
-print(pipeline_results$summary)`,
-        'read_bam_qc': `<span class="text-outline italic"># Read quality control</span>
-<span class="text-clinical-blue font-bold">qc_results</span> &lt;- read_bam_qc(dir = <span class="text-secondary font-medium">"data/samples/"</span>)
+result$scores    <span class="text-outline italic"># data.frame: FCS, BCS, GCS</span>
+result$segments  <span class="text-outline italic"># segmented copy number profile</span>`,
 
-<span class="text-outline italic"># Verify coverage metrics</span>
-print(qc_results$summary)`,
-        'run_cbs_segmentation': `<span class="text-outline italic"># CBS Segmentation</span>
-<span class="text-clinical-blue font-bold">segments</span> &lt;- run_cbs_segmentation(qc_results)
+        'read_bam_qc': `<span class="text-outline italic"># Step 1 — read coverage, GC correction</span>
+<span class="text-clinical-blue font-bold">qc</span> &lt;- read_bam_qc(
+  <span class="text-secondary font-medium">"tumor.bam"</span>,
+  sequencing_type = <span class="text-secondary font-medium">"illumina"</span>,
+  experiment_type = <span class="text-secondary font-medium">"wes"</span>,
+  targets_bed     = <span class="text-secondary font-medium">"capture_kit.bed"</span>,
+  genome_build    = <span class="text-secondary font-medium">"hg19"</span>,
+  gc_correction   = TRUE
+)
+<span class="text-outline italic"># qc$log2_ratio  qc$bins  qc$metadata</span>`,
 
-<span class="text-outline italic"># Visualize profiles</span>
-plot_segmentation(segments)`,
-        'calculate_cna_scores': `<span class="text-outline italic"># Scores calculation</span>
-<span class="text-clinical-blue font-bold">scores</span> &lt;- calculate_cna_scores(segments)
+        'run_cbs_segmentation': `<span class="text-outline italic"># Step 2 — CBS segmentation</span>
+<span class="text-clinical-blue font-bold">seg</span> &lt;- run_cbs_segmentation(
+  qc,
+  sequencing_type = <span class="text-secondary font-medium">"illumina"</span>
+)
 
-<span class="text-outline italic"># Global results</span>
-head(scores$GCS)`,
-        'build_pon': `<span class="text-outline italic"># Create Panel of Normals</span>
-<span class="text-clinical-blue font-bold">pon_matrix</span> &lt;- build_pon(normal_bams_dir = <span class="text-secondary font-medium">"data/normals/"</span>)
+<span class="text-outline italic"># seg$segments: chr, loc.start, loc.end, seg.mean</span>
+head(seg$segments)`,
 
-<span class="text-outline italic"># PoN stats</span>
-summary(pon_matrix)`,
-        'read_cna_file': `<span class="text-outline italic"># Load existing segment files</span>
-<span class="text-clinical-blue font-bold">input_data</span> &lt;- read_cna_file(
-  path = <span class="text-secondary font-medium">"data/segments.tsv"</span>, 
-  source = <span class="text-secondary font-medium">"array"</span>
+        'calculate_cna_scores': `<span class="text-outline italic"># Compute FCS, BCS, GCS per sample</span>
+<span class="text-clinical-blue font-bold">scores</span> &lt;- calculate_cna_scores(reseg_list)
+
+<span class="text-outline italic"># Returns a data.frame:</span>
+<span class="text-outline italic">#   ID      FCS   BCS   GCS</span>
+<span class="text-outline italic">#   S1     12.4   3.1   6.8</span>
+<span class="text-outline italic">#   S2      8.9   1.4   4.2</span>`,
+
+        'build_pon': `<span class="text-outline italic"># Build Panel of Normals from matched normals</span>
+<span class="text-clinical-blue font-bold">pon</span> &lt;- build_pon(
+  bam_paths       = c(<span class="text-secondary font-medium">"normal1.bam"</span>, <span class="text-secondary font-medium">"normal2.bam"</span>),
+  sequencing_type = <span class="text-secondary font-medium">"illumina"</span>,
+  experiment_type = <span class="text-secondary font-medium">"wes"</span>,
+  targets_bed     = <span class="text-secondary font-medium">"capture_kit.bed"</span>
+)
+
+<span class="text-outline italic"># Apply at inference time</span>
+result &lt;- run_bam_pipeline(<span class="text-secondary font-medium">"tumor.bam"</span>, pon = pon, ...)`,
+
+        'read_cna_file': `<span class="text-outline italic"># Load pre-segmented data (SNP array, CNVkit…)</span>
+<span class="text-clinical-blue font-bold">data</span> &lt;- read_cna_file(<span class="text-secondary font-medium">"segments.txt"</span>)
+
+<span class="text-outline italic"># Required columns:</span>
+<span class="text-outline italic">#   ID  chr  loc.start  loc.end  seg.mean</span>
+
+sample_ids &lt;- unique(data$ID)`,
+
+        'resegment_sample': `<span class="text-outline italic"># Re-segment and classify a single sample</span>
+<span class="text-clinical-blue font-bold">seg</span> &lt;- resegment_sample(
+  data,
+  sample_id     = <span class="text-secondary font-medium">"TCGA-XX-0001"</span>,
+  dev_btw_segs  = 0.16,   <span class="text-outline italic"># merge tolerance</span>
+  dev_tozero    = 0.16,   <span class="text-outline italic"># neutral threshold</span>
+  min_length    = 100000, <span class="text-outline italic"># min segment bp</span>
+  chrom_percent = 0.90,
+  arm_percent   = 0.50
 )`,
-        'resegment_sample': `<span class="text-outline italic"># Refine segments</span>
-<span class="text-clinical-blue font-bold">refined_segs</span> &lt;- resegment_sample(
-  segments, 
-  min_size = 1e6, 
-  join_threshold = 0.5
-)`,
-        'annotate_cna_genes': `<span class="text-outline italic"># Map segments to genes</span>
-<span class="text-clinical-blue font-bold">gene_list</span> &lt;- annotate_cna_genes(segments, genome = <span class="text-secondary font-medium">"hg38"</span>)
 
-<span class="text-outline italic"># Find specific drivers</span>
-filter(gene_list, symbol == <span class="text-secondary font-medium">"MYC"</span>)`,
-        'plot_segmentation': `<span class="text-outline italic"># Visualize profiles</span>
-plot_segmentation(segments, sample_id = <span class="text-secondary font-medium">"Sample_001"</span>)`,
-        'plot_cn_frequency': `<span class="text-outline italic"># Cohort frequency plot</span>
-plot_cn_frequency(cohort_data, title = <span class="text-secondary font-medium">"CNA Landscape"</span>)`,
-        'test_clinical_association': `<span class="text-outline italic"># Correlation with survival</span>
-<span class="text-clinical-blue font-bold">stats</span> &lt;- test_clinical_association(
-  scores, 
-  metadata, 
-  var = <span class="text-secondary font-medium">"OS_status"</span>
+        'annotate_cna_genes': `<span class="text-outline italic"># Annotate CNA segments with overlapping genes</span>
+<span class="text-clinical-blue font-bold">annotated</span> &lt;- annotate_cna_genes(
+  seg,
+  genome_build = <span class="text-secondary font-medium">"hg19"</span>
+)
+
+<span class="text-outline italic"># Returns one row per gene in an altered segment</span>
+annotated[annotated$gene == <span class="text-secondary font-medium">"MYC"</span>, ]`,
+
+        'plot_segmentation': `<span class="text-outline italic"># Original vs re-segmented copy number profile</span>
+plot_segmentation(
+  original_data    = data[data$ID == <span class="text-secondary font-medium">"sample_1"</span>, ],
+  resegmented_data = reseg_list[[<span class="text-secondary font-medium">"sample_1"</span>]],
+  sample_id        = <span class="text-secondary font-medium">"sample_1"</span>
 )`,
-        'validate_cna_data': `<span class="text-outline italic"># Data integrity check</span>
-validate_cna_data(my_table)`
+
+        'plot_cn_frequency': `<span class="text-outline italic"># Genome-wide CNA frequency across a cohort</span>
+plot_cn_frequency(reseg_list)
+
+<span class="text-outline italic"># Gains shown in red above the axis</span>
+<span class="text-outline italic"># Losses shown in blue below the axis</span>`,
+
+        'test_clinical_association': `<span class="text-outline italic"># Associate CNA scores with clinical variables</span>
+<span class="text-clinical-blue font-bold">results</span> &lt;- test_clinical_association(
+  scores,
+  clinical_data = clinical_df
+)
+
+<span class="text-outline italic"># Returns test stats, p-values and effect sizes</span>
+<span class="text-outline italic"># per score (FCS, BCS, GCS) and clinical variable</span>`,
+
+        'validate_cna_data': `<span class="text-outline italic"># Validate segment table before processing</span>
+validate_cna_data(data)
+
+<span class="text-outline italic"># Checks:</span>
+<span class="text-outline italic">#  · Required columns present</span>
+<span class="text-outline italic">#  · Correct data types (chr integer, seg.mean numeric)</span>
+<span class="text-outline italic">#  · chr values in 1–22</span>
+<span class="text-outline italic">#  · loc.start &lt; loc.end for all rows</span>`
+    };
+
+    const details = {
+        'run_bam_pipeline': {
+            long: 'End-to-end wrapper that takes a BAM file and returns CNA scores in a single call. Internally chains read_bam_qc() → run_cbs_segmentation() → calculate_cna_scores(). Supports Illumina and Nanopore data in both WES and WGS mode.',
+            params: [
+                { name: 'bam_path', desc: 'Path to the indexed .bam file (.bai must exist alongside)' },
+                { name: 'sequencing_type', desc: '"illumina" or "nanopore"' },
+                { name: 'experiment_type', desc: '"wes" (exome) or "wgs" (whole genome)' },
+                { name: 'targets_bed', desc: 'Capture kit BED — required for WES' },
+                { name: 'genome_build', desc: '"hg19" or "hg38"' },
+                { name: 'pon', desc: 'Optional Panel of Normals from build_pon()' },
+            ],
+            returns: 'List with $scores (data.frame: FCS, BCS, GCS) and $segments (data.frame)'
+        },
+        'read_bam_qc': {
+            long: 'Reads a BAM file, counts reads per genomic bin, and applies GC-content correction. For WES, bins come from the capture kit BED; for WGS, fixed-size genome-wide tiles are used.',
+            params: [
+                { name: 'bam_path', desc: 'Path to the indexed .bam file' },
+                { name: 'sequencing_type', desc: '"illumina" or "nanopore"' },
+                { name: 'experiment_type', desc: '"wes" or "wgs"' },
+                { name: 'targets_bed', desc: 'BED file with capture regions (WES only)' },
+                { name: 'bin_size', desc: 'Bin size in bp (default 500 kb; 1 Mb recommended for Nanopore)' },
+                { name: 'gc_correction', desc: 'Apply GC-LOESS normalisation (recommended)' },
+            ],
+            returns: 'QC object with $log2_ratio, $bins, $metadata'
+        },
+        'run_cbs_segmentation': {
+            long: 'Applies Circular Binary Segmentation (CBS) via DNAcopy to the log2 ratio profile. Produces a segmented copy number profile. Smoothing parameters are tuned automatically for Nanopore vs Illumina.',
+            params: [
+                { name: 'qc', desc: 'Output from read_bam_qc()' },
+                { name: 'sequencing_type', desc: '"illumina" or "nanopore" — controls outlier smoothing' },
+            ],
+            returns: 'List with $segments (data.frame: chr, loc.start, loc.end, seg.mean)'
+        },
+        'calculate_cna_scores': {
+            long: 'Computes FCS (Focal), BCS (Broad) and GCS (Global) CNA burden scores for each sample. Each segment is classified as focal, arm-level, or chromosomal before scoring.',
+            params: [
+                { name: 'reseg_list', desc: 'Named list of re-segmented data.frames (one per sample)' },
+            ],
+            returns: 'data.frame with columns ID, FCS, BCS, GCS'
+        },
+        'build_pon': {
+            long: 'Builds a Panel of Normals from matched normal BAM files. The PoN captures systematic technical biases that are then subtracted at inference time in tumour-only workflows.',
+            params: [
+                { name: 'bam_paths', desc: 'Character vector of paths to normal BAM files' },
+                { name: 'sequencing_type', desc: '"illumina" or "nanopore"' },
+                { name: 'experiment_type', desc: '"wes" or "wgs"' },
+                { name: 'targets_bed', desc: 'Capture kit BED — required for WES' },
+            ],
+            returns: 'PoN object to pass as pon= in run_bam_pipeline() or read_bam_qc()'
+        },
+        'read_cna_file': {
+            long: 'Loads a pre-segmented copy number table from any source (SNP arrays, aCGH, ASCAT, CNVkit…). Validates column names and types automatically.',
+            params: [
+                { name: 'file_path', desc: 'Path to the tab-separated segment file (.txt or .tsv)' },
+            ],
+            returns: 'data.frame ready for resegment_sample()'
+        },
+        'resegment_sample': {
+            long: 'Re-segments and classifies CNA profiles for a single sample. Merges adjacent segments within a log2 tolerance, removes short segments, neutralises near-diploid regions, and classifies each alteration as focal, arm-level, or chromosomal.',
+            params: [
+                { name: 'data', desc: 'Segment data.frame from read_cna_file()' },
+                { name: 'sample_id', desc: 'Sample identifier (must match data$ID)' },
+                { name: 'dev_btw_segs', desc: 'Max log2 difference to merge adjacent segments (default 0.16)' },
+                { name: 'dev_tozero', desc: 'Segments within this range of 0 are set to neutral (default 0.16)' },
+                { name: 'min_length', desc: 'Minimum segment length in bp (default 100,000)' },
+            ],
+            returns: 'data.frame with re-segmented and classified CNA calls'
+        },
+        'annotate_cna_genes': {
+            long: 'Overlaps CNA segments with a gene reference for the specified genome build. Useful for identifying driver genes and reporting clinically relevant alterations.',
+            params: [
+                { name: 'seg_data', desc: 'Re-segmented data.frame from resegment_sample()' },
+                { name: 'genome_build', desc: '"hg19" or "hg38"' },
+            ],
+            returns: 'data.frame with one row per gene overlapping a CNA segment'
+        },
+        'plot_segmentation': {
+            long: 'Genome-wide copy number profile comparing the raw input with the re-segmented output side by side. Useful for quality control and inspecting segmentation parameters.',
+            params: [
+                { name: 'original_data', desc: 'Raw segment data.frame (before resegment_sample)' },
+                { name: 'resegmented_data', desc: 'Output from resegment_sample()' },
+                { name: 'sample_id', desc: 'Sample ID shown in the plot title' },
+            ],
+            returns: 'ggplot2 object'
+        },
+        'plot_cn_frequency': {
+            long: 'Computes and plots the genome-wide frequency of copy number gains (red) and losses (blue) across a cohort. Chromosomes are shown in alternating background bands.',
+            params: [
+                { name: 'reseg_list', desc: 'Named list of re-segmented samples' },
+                { name: 'gain_thr', desc: 'log2 threshold to call a gain (default 0.2)' },
+                { name: 'loss_thr', desc: 'log2 threshold to call a loss (default −0.2)' },
+            ],
+            returns: 'ggplot2 object'
+        },
+        'test_clinical_association': {
+            long: 'Tests the statistical association between CNA scores (FCS, BCS, GCS) and clinical variables. Supports continuous and categorical outcomes. Returns test statistics, p-values, and effect sizes.',
+            params: [
+                { name: 'scores', desc: 'data.frame from calculate_cna_scores()' },
+                { name: 'clinical_data', desc: 'data.frame with clinical variables (IDs must match scores)' },
+            ],
+            returns: 'data.frame with association results per score and variable'
+        },
+        'validate_cna_data': {
+            long: 'Checks that a segment table has the required columns, correct data types, valid chromosome values (1–22), and that loc.start < loc.end for all rows. Throws informative errors on failure.',
+            params: [
+                { name: 'data', desc: 'Segment data.frame to validate' },
+            ],
+            returns: 'Invisible data.frame (throws descriptive error if invalid)'
+        },
     };
 
     function toggleAccordion(id) {
@@ -603,31 +770,57 @@ validate_cna_data(my_table)`
     }
 
     function showFeature(id, title, desc, icon, element) {
-        const detailBlock = document.getElementById('feature-detail');
-        const titleEl = document.getElementById('feature-title');
-        const descEl = document.getElementById('feature-desc');
-        const iconEl = document.getElementById('feature-icon');
-        const codeDisplay = document.getElementById('code-display');
+        const detailBlock  = document.getElementById('feature-detail');
+        const titleEl      = document.getElementById('feature-title');
+        const descEl       = document.getElementById('feature-desc');
+        const iconEl       = document.getElementById('feature-icon');
+        const codeDisplay  = document.getElementById('code-display');
+        const longDescEl   = document.getElementById('feature-long-desc');
+        const paramsEl     = document.getElementById('feature-params');
+        const returnsEl    = document.getElementById('feature-returns');
 
-        // Visual feedback
         detailBlock.classList.add('opacity-0', 'scale-[0.98]');
-        
+
         setTimeout(() => {
             titleEl.textContent = id + "()";
-            descEl.textContent = desc;
-            iconEl.textContent = icon;
-            
-            if (snippets[id]) {
-                codeDisplay.innerHTML = snippets[id];
+            descEl.textContent  = desc;
+            iconEl.textContent  = icon;
+
+            const d = details[id];
+            if (d) {
+                longDescEl.textContent = d.long || '';
+                longDescEl.classList.toggle('hidden', !d.long);
+
+                if (d.params && d.params.length) {
+                    paramsEl.innerHTML = d.params.map(p =>
+                        `<div class="flex gap-2 items-baseline text-body-sm">
+                           <span class="font-label-mono text-primary text-[11px] bg-primary/5 px-2 py-0.5 rounded shrink-0">${p.name}</span>
+                           <span class="text-on-surface-variant">${p.desc}</span>
+                         </div>`
+                    ).join('');
+                    paramsEl.classList.remove('hidden');
+                } else {
+                    paramsEl.innerHTML = '';
+                }
+
+                if (d.returns) {
+                    returnsEl.innerHTML = '<span class="font-semibold text-primary mr-1">Returns:</span>' + d.returns;
+                    returnsEl.classList.remove('hidden');
+                } else {
+                    returnsEl.classList.add('hidden');
+                }
+            } else {
+                longDescEl.textContent = '';
+                paramsEl.innerHTML     = '';
+                returnsEl.classList.add('hidden');
             }
+
+            if (snippets[id]) codeDisplay.innerHTML = snippets[id];
 
             detailBlock.classList.remove('opacity-0', 'scale-[0.98]');
         }, 150);
 
-        // Manage active states
-        document.querySelectorAll('.feature-card').forEach(card => {
-            card.classList.remove('active');
-        });
+        document.querySelectorAll('.feature-card').forEach(card => card.classList.remove('active'));
         element.classList.add('active');
     }
 
