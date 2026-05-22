@@ -5,9 +5,9 @@
 ![R](https://img.shields.io/badge/R-%3E%3D4.1-276DC3.svg)
 ![Platform](https://img.shields.io/badge/platform-WES%20%7C%20WGS%20%7C%20Array-brightgreen)
 
-**CNAppR** is an R package for the analysis of somatic Copy Number Alterations (CNAs) in cancer genomics. It extends the original [CNApp](https://doi.org/10.7554/eLife.50267) framework with a **native BAM processing pipeline**, enabling end-to-end analysis directly from sequencing files — no FASTA, no external tools required.
+**CNAppR** is an R package for the analysis of somatic Copy Number Alterations (CNAs) in cancer genomics. It extends the original [CNApp](https://github.com/ait5/CNApp) framework with a **native BAM processing pipeline**, enabling end-to-end analysis directly from sequencing files — no FASTA, no external tools required.
 
-Designed for translational research, CNAppR handles whole-exome sequencing (WES), whole-genome sequencing (WGS, including low-pass Nanopore), and pre-segmented data from SNP arrays or aCGH.
+Designed for translational research, CNAppR is built around next-generation sequencing data — primarily whole-exome sequencing (WES) and whole-genome sequencing (WGS, including low-pass Nanopore). Pre-segmented data from SNP arrays or aCGH can also be used through the second workflow.
 
 ---
 
