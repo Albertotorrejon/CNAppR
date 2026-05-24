@@ -185,12 +185,33 @@
 }
 
 # Splits large target bins into sub-bins of approximately bin_size bp,
-# mirroring CNVkit's `target --split` command.  Exons smaller than bin_size
-# are kept as single bins.  Output GRanges has the same chromosome names as
-# the input; bin boundaries are computed by equally spacing breakpoints over
-# each original region so all sub-bins have similar width.
+# mirroring CNVkit's `target --split` command.
+# Strategy: try valr::bed_makewindows() first (BED-standard, no edge-case
+# arithmetic); fall back to the original loop implementation if valr is
+# unavailable or raises an error.
 .split_target_bins <- function(targets_gr, bin_size = 267L) {
   bin_size <- as.integer(bin_size)
+
+  # ── valr path ──────────────────────────────────────────────────────────────
+  if (requireNamespace("valr", quietly = TRUE)) {
+    result <- tryCatch({
+      bed_df <- data.frame(
+        chrom = as.character(GenomicRanges::seqnames(targets_gr)),
+        start = GenomicRanges::start(targets_gr) - 1L,   # GRanges→0-based
+        end   = GenomicRanges::end(targets_gr),
+        stringsAsFactors = FALSE
+      )
+      split_df <- valr::bed_makewindows(bed_df, win_size = bin_size)
+      .valr_to_granges(split_df)
+    }, error = function(e) {
+      warning("valr::bed_makewindows failed in .split_target_bins (",
+              conditionMessage(e), "); using loop fallback.")
+      NULL
+    })
+    if (!is.null(result)) return(result)
+  }
+
+  # ── original loop fallback ─────────────────────────────────────────────────
   starts   <- GenomicRanges::start(targets_gr)
   ends     <- GenomicRanges::end(targets_gr)
   chrs     <- as.character(GenomicRanges::seqnames(targets_gr))
@@ -215,7 +236,7 @@
       for (j in seq_len(n)) {
         out_chr[pos] <- chrs[i]
         out_s[pos]   <- bp[j]
-        out_e[pos]   <- bp[j + 1L] - 1L
+        out_e[pos]   <- max(bp[j + 1L] - 1L, bp[j])   # guard against out_e < out_s
         pos <- pos + 1L
       }
     }
@@ -231,10 +252,49 @@
 # split into fixed-size windows.  Mirrors the CNVkit antitarget strategy.
 # min_size  — minimum gap width to keep as antitarget (default 10 kb)
 # bin_size  — split large gaps into bins of this size (default 100 kb)
+#
+# Strategy: try valr (bed_complement + bed_makewindows) first; fall back to
+# the original nested-loop implementation if valr is unavailable or errors.
 .compute_antitarget_bins <- function(targets_gr, chr_lens,
                                       min_size = 10000L,
                                       bin_size  = 100000L) {
-  targets_merged <- GenomicRanges::reduce(targets_gr)
+  min_size <- as.integer(min_size)
+  bin_size <- as.integer(bin_size)
+
+  # ── valr path ──────────────────────────────────────────────────────────────
+  if (requireNamespace("valr", quietly = TRUE)) {
+    result <- tryCatch({
+      genome_df <- data.frame(
+        chrom = names(chr_lens),
+        size  = as.integer(chr_lens),
+        stringsAsFactors = FALSE
+      )
+      bed_df <- data.frame(
+        chrom = as.character(GenomicRanges::seqnames(targets_gr)),
+        start = GenomicRanges::start(targets_gr) - 1L,   # GRanges→0-based
+        end   = GenomicRanges::end(targets_gr),
+        stringsAsFactors = FALSE
+      )
+      merged  <- valr::bed_merge(bed_df)
+      gaps    <- valr::bed_complement(merged, genome_df)
+      gaps    <- gaps[gaps$end - gaps$start >= min_size, , drop = FALSE]
+      if (nrow(gaps) == 0L) return(NULL)
+      anti_df <- valr::bed_makewindows(gaps, win_size = bin_size)
+      anti_df <- anti_df[anti_df$end - anti_df$start >= min_size, , drop = FALSE]
+      if (nrow(anti_df) == 0L) return(NULL)
+      .valr_to_granges(anti_df)
+    }, error = function(e) {
+      warning("valr failed in .compute_antitarget_bins (",
+              conditionMessage(e), "); using loop fallback.")
+      NULL
+    })
+    if (!is.null(result) || inherits(result, "GRanges")) return(result)
+    # result == NULL returned from tryCatch means 0 antitarget bins (not an error)
+    if (is.null(result)) return(NULL)
+  }
+
+  # ── original nested-loop fallback ─────────────────────────────────────────
+  targets_merged  <- GenomicRanges::reduce(targets_gr)
   antitarget_list <- list()
 
   for (ch in names(chr_lens)) {
@@ -250,7 +310,7 @@
       gap_s <- 1L
       gap_e <- chr_len
     } else {
-      gap_s <- c(1L,           t_ends   + 1L)
+      gap_s <- c(1L,            t_ends   + 1L)
       gap_e <- c(t_starts - 1L, chr_len)
     }
 
@@ -266,7 +326,7 @@
       s      <- gap_s[j]
       e      <- gap_e[j]
       starts <- seq(s, e, by = bin_size)
-      ends   <- pmin(starts + as.integer(bin_size) - 1L, e)
+      ends   <- pmin(starts + bin_size - 1L, e)
       ok     <- (ends - starts + 1L) >= min_size
       bins_s <- c(bins_s, starts[ok])
       bins_e <- c(bins_e, ends[ok])
@@ -340,6 +400,17 @@
   x[x == "X"] <- "23"
   x[x == "Y"] <- "24"
   suppressWarnings(as.integer(x))
+}
+
+# Converts a valr-style BED data.frame (chrom, start, end; 0-based half-open)
+# to a GRanges object (1-based closed) required by Rsamtools::countBam().
+# Extra columns (e.g. .win_id from bed_makewindows) are silently ignored.
+.valr_to_granges <- function(bed_df) {
+  GenomicRanges::GRanges(
+    seqnames = bed_df[["chrom"]],
+    ranges   = IRanges::IRanges(start = bed_df[["start"]] + 1L,
+                                end   = bed_df[["end"]])
+  )
 }
 
 
@@ -519,11 +590,33 @@ read_bam_qc <- function(bam_path, bin_size = 500000L, genome_build = "hg19",
     }
   } else {
     original_targets <- NULL
-    bins <- GenomicRanges::tileGenome(
-      seqlengths             = chr_lens,
-      tilewidth              = as.integer(bin_size),
-      cut.last.tile.in.chrom = TRUE
-    )
+    # WGS tiling: try valr::bed_makewindows() first; fall back to tileGenome.
+    if (requireNamespace("valr", quietly = TRUE)) {
+      bins <- tryCatch({
+        genome_df <- data.frame(
+          chrom = names(chr_lens),
+          size  = as.integer(chr_lens),
+          stringsAsFactors = FALSE
+        )
+        .valr_to_granges(
+          valr::bed_makewindows(genome_df, win_size = as.integer(bin_size))
+        )
+      }, error = function(e) {
+        warning("valr::bed_makewindows failed for WGS tiling (",
+                conditionMessage(e), "); using tileGenome fallback.")
+        GenomicRanges::tileGenome(
+          seqlengths             = chr_lens,
+          tilewidth              = as.integer(bin_size),
+          cut.last.tile.in.chrom = TRUE
+        )
+      })
+    } else {
+      bins <- GenomicRanges::tileGenome(
+        seqlengths             = chr_lens,
+        tilewidth              = as.integer(bin_size),
+        cut.last.tile.in.chrom = TRUE
+      )
+    }
   }
 
   # WES antitarget bins: genomic gaps between captured exons.

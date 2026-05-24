@@ -5,9 +5,9 @@
 ![R](https://img.shields.io/badge/R-%3E%3D4.1-276DC3.svg)
 ![Platform](https://img.shields.io/badge/platform-WES%20%7C%20WGS%20%7C%20Array-brightgreen)
 
-**CNAppR** is an R package for the analysis of somatic Copy Number Alterations (CNAs) in cancer genomics. It extends the original [CNApp](https://github.com/ait5/CNApp) framework with a **native BAM processing pipeline**, enabling end-to-end analysis directly from sequencing files — no FASTA, no external tools required.
+**CNAppR** is an R package for the analysis of somatic Copy Number Alterations (CNAs) in cancer genomics. It extends the original [CNApp](https://github.com/ait5/CNApp) framework with a **native BAM processing pipeline**, **pathway enrichment analysis (GSEA)**, and **survival analysis** — enabling end-to-end analysis directly from sequencing files with no external tools required.
 
-Designed for translational research, CNAppR is built around next-generation sequencing data — primarily whole-exome sequencing (WES) and whole-genome sequencing (WGS, including low-pass Nanopore). Pre-segmented data from SNP arrays or aCGH can also be used through the second workflow.
+Designed for translational research, CNAppR supports whole-exome sequencing (WES), whole-genome sequencing (WGS, including low-pass Nanopore), and pre-segmented data from SNP arrays or aCGH.
 
 ---
 
@@ -16,6 +16,29 @@ Designed for translational research, CNAppR is built around next-generation sequ
 ```r
 # Requires devtools
 devtools::install_github("Albertotorrejon/CNAppR")
+```
+
+### Optional dependencies
+
+Install only the modules you need:
+
+```r
+# BAM pipeline (WES/WGS from aligned reads)
+BiocManager::install(c("Rsamtools", "GenomicRanges", "DNAcopy"))
+
+# WES GC correction (BSgenome-based)
+BiocManager::install(c("BSgenome.Hsapiens.UCSC.hg19",
+                       "BSgenome.Hsapiens.UCSC.hg38", "Biostrings"))
+
+# Faster WES binning (replaces internal loops with BED-standard operations)
+install.packages("valr")
+
+# Pathway enrichment (GSEA)
+BiocManager::install("fgsea")
+install.packages("msigdbr")
+
+# Survival analysis
+install.packages(c("survival", "survminer"))
 ```
 
 ---
@@ -48,9 +71,6 @@ result <- run_bam_pipeline(
   genome_build    = "hg19",
   gc_correction   = TRUE
 )
-
-result$scores   # FCS, BCS, GCS
-result$segments # segmented profile
 ```
 
 ### WGS (whole-genome sequencing, including low-pass Nanopore)
@@ -60,7 +80,7 @@ result <- run_bam_pipeline(
   bam_path        = "cfDNA_sample.bam",
   sequencing_type = "nanopore",          # or "illumina"
   experiment_type = "wgs",
-  bin_size        = 500e3,               # 500 kb bins recommended for low-pass
+  bin_size        = 500e3,               # 500 kb bins recommended
   genome_build    = "hg38",
   gc_correction   = TRUE
 )
@@ -80,18 +100,26 @@ qc <- read_bam_qc(
 )
 
 # 2. CBS segmentation
-seg <- run_cbs_segmentation(qc)
+seg <- run_cbs_segmentation(qc, sample_id = "sample_01")
 
-# 3. Compute CNA scores
-scores <- calculate_cna_scores(seg$segments)
+# 3. Re-segment and classify CNAs
+reseg <- resegment_sample(seg, sample_id = "sample_01")
+```
+
+### WES binning with valr
+
+When the `valr` package is installed, `read_bam_qc()` automatically uses
+`valr::bed_makewindows()` and `valr::bed_complement()` for bin generation
+(CNVkit-style target splitting and antitarget computation). If valr is
+not available, the original loop-based implementation is used as fallback.
+
+```r
+install.packages("valr")   # recommended for WES
 ```
 
 ### Panel of Normals (optional)
 
-For tumour-only workflows, build a PoN from normal samples to remove systematic biases:
-
 ```r
-# Build once from matched normal BAMs
 pon <- build_pon(
   bam_paths       = c("normal1.bam", "normal2.bam", "normal3.bam"),
   sequencing_type = "illumina",
@@ -99,8 +127,9 @@ pon <- build_pon(
   targets_bed     = "capture_kit.bed"
 )
 
-# Apply at inference time
-result <- run_bam_pipeline("tumor.bam", pon = pon, ...)
+result <- run_bam_pipeline("tumor.bam", pon = pon,
+                            experiment_type = "wes",
+                            targets_bed     = "capture_kit.bed")
 ```
 
 ---
@@ -138,7 +167,90 @@ plot_cn_frequency(reseg_list)
 results <- test_clinical_association(scores, clinical_data = clinical)
 ```
 
-A demo dataset of 160 colorectal cancer samples (TCGA-COAD) is bundled with the package.
+---
+
+## Pathway Enrichment Analysis (GSEA)
+
+Requires `fgsea` (Bioconductor) and `msigdbr` (CRAN).
+
+```r
+# 1. Annotate segments with gene symbols
+reseg <- resegment_sample(data, sample_id = "sample_1")
+ann   <- annotate_cna_genes(reseg, genome_build = "hg19")
+
+# 2. Build a gene rank vector (positive = amplified, negative = deleted)
+ranks <- build_gene_ranks(ann, score_col = "seg.mean")
+
+# 3. Run GSEA (Hallmark + curated gene sets)
+gsea_res <- run_gsea(
+  ranks,
+  collections = c("H", "C2"),
+  alpha       = 0.25,
+  top_n       = 20
+)
+
+gsea_res$plot           # NES barplot
+head(gsea_res$significant)  # significant pathways
+
+# 4. Stratified GSEA by clinical group
+ranks_list <- lapply(sample_ids, function(id) {
+  build_gene_ranks(annotate_cna_genes(resegment_sample(data, id)))
+})
+names(ranks_list) <- sample_ids
+
+groups   <- c(sample_1 = "MSI", sample_2 = "MSS")   # example
+gsea_str <- run_gsea(ranks_list, clinical_groups = groups, collections = "H")
+```
+
+---
+
+## Survival Analysis
+
+Requires `survival` and `survminer`.
+
+```r
+# Median split on GCS
+surv_data <- data.frame(
+  time   = c(24, 36, 12, 60, 48),
+  event  = c(1,  0,  1,  0,  1),
+  row.names = sample_ids
+)
+
+res <- run_survival_analysis(
+  scores       = scores,
+  survival_data = surv_data,
+  score_var    = "GCS",      # or "FCS" / "BCS"
+  n_groups     = 2,          # 2 = median split; 4 = quartiles
+  time_col     = "time",
+  event_col    = "event"
+)
+
+res$plot     # Kaplan-Meier curve
+res$pvalue   # log-rank p-value
+
+# Stratified by MSI status
+res_msi <- run_survival_analysis(scores, surv_data,
+                                  score_var    = "FCS",
+                                  n_groups     = 4,
+                                  clinical_var = "msi_status")
+```
+
+---
+
+## Clinical Annotation
+
+```r
+# Merge external annotation file with CNA data
+data_ann <- prepare_annotation_data(data, "annotations.tsv")
+
+# Extract and classify clinical variables (numeric / categorical)
+var_prep <- prepare_clinical_variables(data_ann, exclude_cols = c("BAF", "purity"))
+
+# Test CNA score associations with all clinical variables
+assoc <- test_clinical_association(scores, var_prep$mat_variables)
+assoc$pval_nonparametric   # Spearman / Kruskal-Wallis
+assoc$pval_parametric      # Pearson / ANOVA
+```
 
 ---
 
@@ -171,7 +283,7 @@ Optional: `BAF` (B-allele frequency), `purity` (tumour purity 0–1).
 
 | Score | Description |
 |---|---|
-| **FCS** | Focal CNA Score — count of sub-arm alterations weighted by size |
+| **FCS** | Focal CNA Score — weighted sum of sub-arm alteration scores |
 | **BCS** | Broad CNA Score — count of arm- and chromosomal-level alterations |
 | **GCS** | Global CNA Score — normalised combination of FCS and BCS |
 

@@ -216,19 +216,26 @@ prepare_clinical_variables <- function(data, exclude_cols = c("BAF", "purity"), 
 
 #' Prepare Annotation Data
 #'
-#' Reads and merges annotation/clinical data with main CNA data.
+#' Reads and merges annotation/clinical data with the main CNA data frame.
+#' Each annotation row is broadcast to all CNA rows belonging to the same
+#' sample (many-to-one join on the sample ID column).
 #'
 #' @param data Main data frame (from read_cna_file()).
-#' @param annot_filepath Character path to annotation file.
-#' @param sep Character field separator for annotation file.
-#' @param dec Character decimal separator for annotation file.
-#' @param sample_var Character name of sample ID column.
+#' @param annot_filepath Character path to annotation file (tab-separated,
+#'   with header). Must contain a column named by sample_var.
+#' @param sep Character field separator for annotation file (default "\t").
+#' @param dec Character decimal separator for annotation file (default ".").
+#' @param sample_var Character name of sample ID column in both data frames
+#'   (default "ID").
 #'
-#' @return Merged data frame with annotation columns appended.
+#' @return The original data frame with annotation columns appended. Rows
+#'   and their order are preserved. Samples in data without an annotation
+#'   entry receive NA in all appended columns. Annotation columns that
+#'   already exist in data are silently replaced by the annotation values.
 #'
 #' @details
-#' Annotation file must have an ID column matching sample_var in main data.
-#' Data is merged by matching sample IDs.
+#' Merging is done with base::merge() (left join), which is substantially
+#' faster than a row-by-row loop for large cohorts.
 #'
 #' @examples
 #' \dontrun{
@@ -236,58 +243,41 @@ prepare_clinical_variables <- function(data, exclude_cols = c("BAF", "purity"), 
 #' }
 #'
 #' @export
-prepare_annotation_data <- function(data, annot_filepath, sep = "\t", dec = ".", sample_var = "ID") {
-  if (!file.exists(annot_filepath)) {
+prepare_annotation_data <- function(data, annot_filepath, sep = "\t",
+                                     dec = ".", sample_var = "ID") {
+  if (!file.exists(annot_filepath))
     stop("Annotation file not found: ", annot_filepath)
-  }
 
-  annot_df <- utils::read.table(annot_filepath, sep = sep, header = TRUE, dec = dec, stringsAsFactors = FALSE)
+  annot_df <- utils::read.table(annot_filepath, sep = sep, header = TRUE,
+                                 dec = dec, stringsAsFactors = FALSE)
 
-  # Validate annotation structure
-  if (!sample_var %in% colnames(annot_df)) {
+  if (!sample_var %in% colnames(annot_df))
     stop("Annotation file must contain '", sample_var, "' column.")
-  }
 
-  names_in_annot <- as.character(annot_df[[sample_var]])
+  # Warn about annotation samples absent from main data
+  extra <- setdiff(as.character(annot_df[[sample_var]]),
+                    unique(as.character(data[[sample_var]])))
+  if (length(extra) > 0L)
+    warning(length(extra), " annotation sample(s) not found in main data: ",
+            paste(head(extra, 3L), collapse = ", "),
+            if (length(extra) > 3L) paste0(" ... (+", length(extra) - 3L, " more)") else "")
 
-  # Build matrix for annotation columns
-  n_mat <- as.data.frame(matrix(NA_character_, ncol = ncol(annot_df), nrow = nrow(data)))
-  colnames(n_mat) <- colnames(annot_df)
+  # Annotation columns that overlap existing data columns (other than sample_var)
+  # are replaced by the annotation values — drop them from data first to avoid
+  # .x / .y suffix collisions from merge().
+  annot_new_cols <- setdiff(colnames(annot_df), sample_var)
+  data_clean <- data[, setdiff(colnames(data), annot_new_cols), drop = FALSE]
 
-  new_df <- cbind(data, n_mat)
+  # Preserve original row order: merge() does not guarantee it
+  data_clean[[".row_order"]] <- seq_len(nrow(data_clean))
 
-  # Fill annotation data per sample
-  for (jj in seq_along(names_in_annot)) {
-    n_sample <- as.character(names_in_annot[jj])
-    rows_in_df <- which(data[[sample_var]] == n_sample)
+  merged <- merge(data_clean, annot_df, by = sample_var, all.x = TRUE,
+                   sort = FALSE)
+  merged <- merged[order(merged[[".row_order"]]), , drop = FALSE]
+  merged[[".row_order"]] <- NULL
+  rownames(merged) <- NULL
 
-    if (length(rows_in_df) == 0) {
-      warning("Sample '", n_sample, "' from annotation file not found in main data.")
-      next
-    }
-
-    row <- annot_df[jj, ]
-
-    for (xx in seq_len(ncol(annot_df))) {
-      col_name <- colnames(annot_df)[xx]
-      class_var <- class(annot_df[, xx])
-      term <- as.character(row[, xx])
-
-      if (class_var %in% c("numeric", "integer")) {
-        new_df[rows_in_df, col_name] <- as.numeric(term)
-      } else if (class_var %in% c("factor", "character")) {
-        new_df[rows_in_df, col_name] <- rep(term, length(rows_in_df))
-      }
-    }
-  }
-
-  # Remove duplicate sample_var column that comes from the annotation file
-  dup_idx <- which(colnames(new_df) == sample_var)
-  if (length(dup_idx) > 1) {
-    new_df <- new_df[, -dup_idx[2]]
-  }
-
-  return(new_df)
+  merged
 }
 
 

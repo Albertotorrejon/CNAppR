@@ -19,12 +19,18 @@
 #' package. A gene is considered within a segment if its coordinates
 #' overlap with the segment start and end positions.
 #'
+#' The annotated output feeds directly into build_gene_ranks(), which
+#' converts segment-level annotations into a per-gene rank vector
+#' suitable for run_gsea().
+#'
 #' @examples
 #' \dontrun{
-#'   reseg <- resegment_sample(data, sample_id = "sample_01")
+#'   reseg     <- resegment_sample(data, sample_id = "sample_01")
 #'   reseg_ann <- annotate_cna_genes(reseg, genome_build = "hg19")
-#'   head(reseg_ann[!is.na(reseg_ann$genes),
-#'                  c("chr", "loc.start", "loc.end", "type", "genes")])
+#'
+#'   # GSEA pipeline
+#'   ranks    <- build_gene_ranks(reseg_ann)
+#'   gsea_res <- run_gsea(ranks, collections = "H")
 #' }
 #'
 #' @export
@@ -43,12 +49,15 @@ annotate_cna_genes <- function(segments, genome_build = "hg19",
   ref_genes <- utils::read.table(ref_file, sep = "\t", header = TRUE,
                                  stringsAsFactors = FALSE)
 
-  # Normalize chr column (remove "chr" prefix, convert X/Y to numeric)
   ref_genes$chrom <- gsub("chr", "", ref_genes$chrom)
   ref_genes$chrom[ref_genes$chrom == "X"] <- "23"
   ref_genes$chrom[ref_genes$chrom == "Y"] <- "24"
   ref_genes$chrom <- suppressWarnings(as.numeric(ref_genes$chrom))
   ref_genes <- ref_genes[!is.na(ref_genes$chrom), ]
+
+  # Pre-split by chromosome: avoids scanning all genes for each segment.
+  # Reduces complexity from O(segs * all_genes) to O(segs * genes_on_chr).
+  ref_by_chr <- split(ref_genes, ref_genes$chrom)
 
   segments$genes <- NA_character_
 
@@ -58,27 +67,30 @@ annotate_cna_genes <- function(segments, genome_build = "hg19",
                                 segments$classified != "diploid")
   }
 
+  if (length(rows_to_annotate) == 0L) return(segments)
+
   for (i in rows_to_annotate) {
     chr_val <- suppressWarnings(
       as.numeric(gsub("chr", "", segments$chr[i]))
     )
     if (is.na(chr_val)) next
 
+    chr_genes <- ref_by_chr[[as.character(chr_val)]]
+    if (is.null(chr_genes)) next
+
     seg_start <- segments$loc.start[i]
     seg_end   <- segments$loc.end[i]
 
-    genes_in_seg <- ref_genes[
-      ref_genes$chrom == chr_val &
-        ref_genes$end   >= seg_start &
-        ref_genes$start <= seg_end,
-      "symbol_name"
+    genes_in_seg <- chr_genes$symbol_name[
+      chr_genes$end   >= seg_start &
+      chr_genes$start <= seg_end
     ]
 
     genes_in_seg <- unique(
       genes_in_seg[!is.na(genes_in_seg) & genes_in_seg != ""]
     )
 
-    if (length(genes_in_seg) > 0) {
+    if (length(genes_in_seg) > 0L) {
       segments$genes[i] <- paste(genes_in_seg, collapse = "; ")
     }
   }

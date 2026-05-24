@@ -1,14 +1,16 @@
 Package: CNAppR
 Title: Copy Number Alterations Analysis and Integrative Exploration
-Version: 1.1.0
+Version: 1.2.0
 Depends: R (>= 4.1)
 Authors@R: person("Alberto", "Torrejon Aquino",
            email = "alberto.torrejon.aquino@gmail.com",
            role = c("aut", "cre"))
 Description: Provides re-segmentation, scoring (BCS, FCS, GCS),
-    genome-wide profiling, and gene annotation for the analysis of somatic
-    copy number alterations (CNAs). The package operates as a standalone R
-    library without requiring a graphical interface.
+    genome-wide profiling, gene annotation, pathway enrichment (GSEA via
+    fgsea), and survival analysis for somatic copy number alterations
+    (CNAs). Supports WES and WGS data from BAM files and pre-segmented
+    input. The package operates as a standalone R library without
+    requiring a graphical interface.
 License: MIT + file LICENSE
 Encoding: UTF-8
 URL: https://github.com/Albertotorrejon/CNAppR
@@ -34,6 +36,9 @@ Suggests:
     GenomicFeatures,
     GenomicAlignments,
     GenVisR,
+    valr (>= 0.8.0),
+    fgsea (>= 1.28.0),
+    msigdbr (>= 7.5.1),
     testthat (>= 3.0.0),
     knitr,
     rmarkdown
