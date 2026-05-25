@@ -130,6 +130,10 @@
 #' segment it overlaps; when a gene appears in multiple segments the value
 #' with the highest absolute magnitude is kept by default.
 #'
+#' By default only focal CNAs are used, as the relationship between copy
+#' number dosage and gene expression is better established for sub-arm
+#' alterations than for broad (arm-level or chromosomal) events.
+#'
 #' @param annotated_segs Data frame returned by annotate_cna_genes().
 #'   Must contain a "genes" column (semicolon-separated HGNC symbols) and
 #'   the score column specified by score_col.
@@ -137,6 +141,9 @@
 #'   the ranking metric. Default "seg.mean" (log2 copy-number ratio).
 #'   Other useful options: "score" (CNAppR weight score), or any numeric
 #'   column present in the data.
+#' @param cna_type Character vector of CNA types to include. Valid values:
+#'   "focal", "arm", "chromosomal". Default "focal". Set to
+#'   c("focal", "arm", "chromosomal") to include all types.
 #' @param agg_fun Function applied when a gene appears in more than one
 #'   segment. Receives a numeric vector and returns a scalar. Default:
 #'   keep the value with the highest absolute magnitude.
@@ -149,17 +156,35 @@
 #' \dontrun{
 #'   reseg  <- resegment_sample(data, sample_id = "s1")
 #'   ann    <- annotate_cna_genes(reseg)
-#'   ranks  <- build_gene_ranks(ann)
+#'   ranks  <- build_gene_ranks(ann)                          # focal only (default)
+#'   ranks  <- build_gene_ranks(ann, cna_type = c("focal", "arm"))  # focal + arm
 #'   gsea_r <- run_gsea(ranks, collections = "H")
 #' }
 #'
 #' @export
 build_gene_ranks <- function(annotated_segs, score_col = "seg.mean",
+                              cna_type = "focal",
                               agg_fun = function(x) x[which.max(abs(x))]) {
   if (!score_col %in% colnames(annotated_segs))
     stop("Column '", score_col, "' not found in annotated_segs.")
   if (!"genes" %in% colnames(annotated_segs))
     stop("Column 'genes' not found. Run annotate_cna_genes() first.")
+
+  # Filter by CNA type if the type column is present
+  if (!is.null(cna_type) && "type" %in% colnames(annotated_segs)) {
+    valid_types <- c("focal", "arm", "chromosomal")
+    unknown <- setdiff(cna_type, valid_types)
+    if (length(unknown) > 0L)
+      warning("Unknown cna_type value(s): ", paste(unknown, collapse = ", "),
+              ". Valid options: focal, arm, chromosomal.")
+    annotated_segs <- annotated_segs[
+      !is.na(annotated_segs$type) & annotated_segs$type %in% cna_type,
+      , drop = FALSE
+    ]
+    if (nrow(annotated_segs) == 0L)
+      stop("No segments remain after filtering for cna_type = c('",
+           paste(cna_type, collapse = "', '"), "').")
+  }
 
   has_genes <- !is.na(annotated_segs$genes) & nzchar(annotated_segs$genes)
   segs_ann  <- annotated_segs[has_genes, , drop = FALSE]
