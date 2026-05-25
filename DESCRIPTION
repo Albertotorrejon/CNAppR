@@ -1,6 +1,6 @@
 Package: CNAppR
 Title: Copy Number Alterations Analysis and Integrative Exploration
-Version: 1.2.0
+Version: 1.5.0
 Depends: R (>= 4.1)
 Authors@R: person("Alberto", "Torrejon Aquino",
            email = "alberto.torrejon.aquino@gmail.com",

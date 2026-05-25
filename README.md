@@ -57,17 +57,42 @@ CNAppR supports two entry points depending on your data:
 ## Workflow 1 — BAM pipeline
 
 For samples where you have a BAM file and want to go directly to CNA scores.
+`experiment_type` is auto-detected: providing a `targets_bed` or `capture_kit`
+selects WES mode; otherwise WGS mode is assumed.
 
-### WES (whole-exome sequencing)
+### WES — with matched normal BAM (recommended)
 
 ```r
 library(CNAppR)
 
 result <- run_bam_pipeline(
   bam_path        = "tumor.bam",
+  normal_bam      = "normal.bam",        # paired normal: removes capture bias
   sequencing_type = "illumina",
-  experiment_type = "wes",
-  targets_bed     = "capture_kit.bed",   # required for WES
+  targets_bed     = "capture_kit.bed",   # auto-detected as WES
+  genome_build    = "hg19"
+)
+```
+
+### WES — with capture kit auto-selection
+
+```r
+result <- run_bam_pipeline(
+  bam_path        = "tumor.bam",
+  sequencing_type = "illumina",
+  capture_kit     = "agilent_v7",        # selects bundled BED automatically
+  genome_build    = "hg19",
+  gc_correction   = TRUE
+)
+```
+
+### WES — tumor-only with GC correction
+
+```r
+result <- run_bam_pipeline(
+  bam_path        = "tumor.bam",
+  sequencing_type = "illumina",
+  targets_bed     = "capture_kit.bed",
   genome_build    = "hg19",
   gc_correction   = TRUE
 )
@@ -76,11 +101,20 @@ result <- run_bam_pipeline(
 ### WGS (whole-genome sequencing, including low-pass Nanopore)
 
 ```r
+# Illumina WGS — bin size auto-selected (500 kb)
 result <- run_bam_pipeline(
-  bam_path        = "cfDNA_sample.bam",
-  sequencing_type = "nanopore",          # or "illumina"
-  experiment_type = "wgs",
-  bin_size        = 500e3,               # 500 kb bins recommended
+  bam_path        = "illumina_wgs.bam",
+  sample_id       = "sample_01",
+  sequencing_type = "illumina",
+  genome_build    = "hg38",
+  gc_correction   = TRUE
+)
+
+# Nanopore low-pass — bin size auto-selected (1 Mb), LOESS span auto-adjusted
+result <- run_bam_pipeline(
+  bam_path        = "cfDNA_nanopore.bam",
+  sample_id       = "sample_02",
+  sequencing_type = "nanopore",
   genome_build    = "hg38",
   gc_correction   = TRUE
 )
@@ -91,12 +125,12 @@ result <- run_bam_pipeline(
 `run_bam_pipeline()` is a wrapper around three composable functions:
 
 ```r
-# 1. Read BAM, count reads per bin, apply GC correction
+# 1. Read BAM, count reads per bin, apply GC correction or paired normal ratio
 qc <- read_bam_qc(
   "tumor.bam",
+  normal_bam      = "normal.bam",   # optional: replaces GC correction + PoN
   sequencing_type = "illumina",
-  experiment_type = "wes",
-  targets_bed     = "capture_kit.bed"
+  targets_bed     = "capture_kit.bed"   # presence auto-detects WES mode
 )
 
 # 2. CBS segmentation
@@ -117,19 +151,33 @@ not available, the original loop-based implementation is used as fallback.
 install.packages("valr")   # recommended for WES
 ```
 
-### Panel of Normals (optional)
+### Panel of Normals (optional, tumor-only cohorts)
 
 ```r
 pon <- build_pon(
   bam_paths       = c("normal1.bam", "normal2.bam", "normal3.bam"),
   sequencing_type = "illumina",
-  experiment_type = "wes",
-  targets_bed     = "capture_kit.bed"
+  capture_kit     = "agilent_v7"   # auto-selects BED
 )
 
 result <- run_bam_pipeline("tumor.bam", pon = pon,
-                            experiment_type = "wes",
-                            targets_bed     = "capture_kit.bed")
+                            capture_kit = "agilent_v7")
+```
+
+### Multi-platform cohort analysis
+
+```r
+# Harmonize WES and WGS segments into one table for cohort-level scoring
+wes_segs <- lapply(wes_ids, function(id) resegment_sample(wes_data, id))
+wgs_segs <- lapply(wgs_ids, function(id) resegment_sample(wgs_data, id))
+
+all_segs <- harmonize_segments(
+  c(wes_segs, wgs_segs),
+  source    = c(rep("wes", length(wes_segs)), rep("wgs", length(wgs_segs))),
+  chr_style = "integer"   # or "ucsc" / "keep"
+)
+
+scores <- calculate_cna_scores(split(all_segs, all_segs$ID))
 ```
 
 ---

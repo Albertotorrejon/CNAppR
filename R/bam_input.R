@@ -27,6 +27,63 @@
          basename(bam_path))
 }
 
+# Validates that a paired normal BAM is compatible with the tumor BAM:
+# same chromosome names and lengths (same reference genome).
+.check_bam_compatibility <- function(tumor_bam, normal_bam) {
+  .check_bam(normal_bam)
+  t_hdr <- Rsamtools::scanBamHeader(tumor_bam)[[1]]$targets
+  n_hdr <- Rsamtools::scanBamHeader(normal_bam)[[1]]$targets
+  common <- intersect(names(t_hdr), names(n_hdr))
+  if (length(common) == 0L)
+    stop("Tumor and normal BAM share no chromosome names.\n",
+         "Tumor:  ", paste(head(names(t_hdr), 4), collapse = ", "), "\n",
+         "Normal: ", paste(head(names(n_hdr), 4), collapse = ", "))
+  mismatched <- common[t_hdr[common] != n_hdr[common]]
+  if (length(mismatched) > 0L)
+    stop("Tumor and normal BAM have different lengths for: ",
+         paste(head(mismatched, 4), collapse = ", "),
+         ".\nEnsure both were aligned to the same reference genome.")
+  invisible(TRUE)
+}
+
+# Resolves a capture_kit name to a BED file path bundled in inst/extdata/.
+# Supported kits: "standard", "agilent_v7", "agilent_v6",
+#   "illumina_truseq", "twist_exome", "idt_xgen".
+# Falls back to the standard exome BED with a warning if the kit BED is
+# not bundled (e.g. because only the standard BED was shipped with the
+# package — kit-specific BEDs must be generated separately).
+.kit_to_bed <- function(capture_kit, genome_build) {
+  kit_map <- c(
+    standard        = "standard_exome",
+    agilent_v7      = "agilent_sureselect_v7",
+    agilent_v6      = "agilent_sureselect_v6",
+    illumina_truseq = "illumina_truseq",
+    twist_exome     = "twist_exome",
+    idt_xgen        = "idt_xgen"
+  )
+  base <- kit_map[capture_kit]
+  if (is.na(base))
+    stop("Unknown capture_kit '", capture_kit, "'.\n",
+         "Supported values: ", paste(names(kit_map), collapse = ", "))
+
+  fname <- sprintf("%s_%s.bed", base, genome_build)
+  fpath <- system.file("extdata", fname, package = "CNAppR")
+  if (nzchar(fpath) && file.exists(fpath)) return(fpath)
+
+  # Kit-specific BED not found — try the standard fallback
+  if (capture_kit != "standard") {
+    warning("BED for capture_kit='", capture_kit, "' (", fname, ") not found ",
+            "in inst/extdata/. Falling back to standard exome BED.")
+    fallback <- system.file("extdata",
+                            sprintf("standard_exome_%s.bed", genome_build),
+                            package = "CNAppR")
+    if (nzchar(fallback) && file.exists(fallback)) return(fallback)
+  }
+  stop("No BED file found for capture_kit='", capture_kit,
+       "' or the standard exome fallback (genome_build='", genome_build, "').\n",
+       "Generate it with inst/scripts/generate_standard_exome_bed.R.")
+}
+
 # Loads a WES capture kit BED file and converts it to GRanges
 # with chromosome names matching the BAM header.
 .load_targets_bed <- function(targets_bed, chr_lens) {
@@ -71,11 +128,15 @@
   fname   <- sprintf("bins_%s_%dkb.rds", genome_build, bin_kb)
   fpath   <- system.file("extdata", fname, package = "CNAppR")
 
-  if (!nzchar(fpath) || !file.exists(fpath))
-    stop("Annotation table not found: ", fname,
-         "\nAvailable bin sizes: 500kb, 1000kb, 2000kb, 10000kb",
-         "\nAvailable genomes: hg19, hg38",
-         "\nOr generate the table with inst/scripts/generate_bin_annotations.R")
+  if (!nzchar(fpath) || !file.exists(fpath)) {
+    warning("Annotation table not found: ", fname,
+            "\nGC correction will use reads directly (no pre-computed GC/mappability).",
+            "\nAvailable bin sizes: 500kb, 1000kb, 2000kb, 10000kb",
+            "\nAvailable genomes: hg19, hg38",
+            "\nGenerate the table with inst/scripts/generate_bin_annotations.R")
+    n <- length(bins)
+    return(list(gc = rep(NA_real_, n), mappability = rep(NA_real_, n)))
+  }
 
   ann <- readRDS(fpath)
 
@@ -96,8 +157,10 @@
   list(gc = merged$gc, mappability = merged$mappability)
 }
 
-# HMMcopy-style LOESS GC correction: outlier filtering + reads ~ GC regression
-.correct_gc_loess <- function(reads, gc) {
+# HMMcopy-style LOESS GC correction: outlier filtering + reads ~ GC regression.
+# span: LOESS bandwidth — 0.03 (HMMcopy default) for Illumina short reads;
+#   use 0.75 for Nanopore to avoid overfitting noisier coverage profiles.
+.correct_gc_loess <- function(reads, gc, span = 0.03) {
   # Step 1: base filter matching HMMcopy (valid GC and bin with reads)
   base_valid <- !is.na(gc) & gc > 0.2 & gc < 0.8 & reads > 0
   if (sum(base_valid) < 10) {
@@ -119,10 +182,10 @@
     return(reads)
   }
 
-  # Step 3: LOESS with span = 0.03 as in HMMcopy, fitted on clean data
+  # Step 3: LOESS fitted on clean data; span is caller-controlled
   gc_fit    <- gc[fit_valid]
   reads_fit <- reads[fit_valid]
-  fit       <- stats::loess(reads_fit ~ gc_fit, span = 0.03)
+  fit       <- stats::loess(reads_fit ~ gc_fit, span = span)
   predicted <- stats::predict(fit, newdata = data.frame(gc_fit = gc), se = FALSE)
 
   median_pred <- stats::median(predicted[fit_valid], na.rm = TRUE)
@@ -286,11 +349,10 @@
     }, error = function(e) {
       warning("valr failed in .compute_antitarget_bins (",
               conditionMessage(e), "); using loop fallback.")
-      NULL
+      structure(list(), class = "valr_error_sentinel")
     })
-    if (!is.null(result) || inherits(result, "GRanges")) return(result)
-    # result == NULL returned from tryCatch means 0 antitarget bins (not an error)
-    if (is.null(result)) return(NULL)
+    # Return GRanges or NULL (no antitargets); only fall through on valr error
+    if (!inherits(result, "valr_error_sentinel")) return(result)
   }
 
   # ── original nested-loop fallback ─────────────────────────────────────────
@@ -423,28 +485,47 @@
 #' This is the required input for run_cbs_segmentation().
 #'
 #' @param bam_path Character path to the BAM file (must be indexed, .bai).
-#' @param bin_size Integer bin size in bp (default 500000 for WES,
-#'   use 1000000 for low-pass Nanopore).
+#' @param bin_size Integer bin size in bp. Default NULL = auto: 500,000 bp
+#'   for Illumina, 1,000,000 bp for Nanopore low-pass WGS. Ignored in WES
+#'   mode when a targets BED is provided.
 #' @param genome_build Character "hg19" or "hg38" (default "hg19"). Used
 #'   only as metadata; chromosome sizes are read from the BAM header.
 #' @param min_mapq Integer minimum mapping quality to include (default 20).
-#' @param gc_correction Logical, apply HMMcopy-style GC content correction
-#'   using pre-computed tables included in the package (default FALSE).
-#'   Recommended for low-pass WGS and WES.
+#' @param gc_correction Logical, apply GC content correction (default FALSE).
+#'   WGS: HMMcopy-style LOESS on raw reads using pre-computed tables.
+#'   WES: CNVkit flat-reference style LOESS in log2 space via BSgenome.
+#'   Recommended for all experiment types.
 #' @param sequencing_type Character "illumina" or "nanopore". Controls
-#'   mappability filtering (Illumina only) and smooth.region in CBS.
-#'   Does NOT determine WGS vs WES — use experiment_type for that.
+#'   mappability filtering (Illumina only), CBS smooth.region, default
+#'   bin_size, and GC LOESS span. Does NOT determine WGS vs WES.
 #' @param experiment_type Character "wes" or "wgs" (default "wgs").
-#'   "wes": bins are created from targets_bed (or the standard exome BED);
-#'   bins with zero reads become NA instead of a large negative log2.
-#'   "wgs": fixed genome-wide bins via tileGenome; zero-read bins keep
-#'   their log2 value (needed to detect deep deletions).
+#'   "wes": bins from targets_bed; zero-read bins become NA.
+#'   "wgs": fixed genome-wide bins; zero-read bins keep large negative log2
+#'   (needed to detect deep deletions).
 #' @param min_mappability Numeric minimum mappability threshold for filtering
-#'   bins in Illumina data (default 0.9). Ignored for Nanopore.
+#'   Illumina WGS bins (default 0.9). Ignored for Nanopore.
+#' @param gc_loess_span Numeric LOESS bandwidth for WGS GC correction.
+#'   Default NULL = auto: 0.03 for Illumina (HMMcopy default, tight fit);
+#'   0.75 for Nanopore (smoother fit, less prone to overfitting noisy
+#'   low-pass coverage). Override with any value in (0, 1].
+#' @param normal_bam Character path to a matched normal BAM file (optional).
+#'   When provided, read counts are depth-normalised and the log2 ratio is
+#'   computed as log2(tumour/normal), removing systematic capture bias without
+#'   needing BSgenome or a Panel of Normals. gc_correction and pon are ignored
+#'   when normal_bam is supplied. The normal BAM must have a .bai index and
+#'   must have been aligned to the same reference genome as the tumour BAM.
+#'   Default NULL (no paired normal).
+#' @param capture_kit Character name of the capture kit used for WES.
+#'   When provided, automatically selects the corresponding BED file bundled
+#'   in inst/extdata/ for the specified genome_build. Supported values:
+#'   "standard" (default), "agilent_v7", "agilent_v6", "illumina_truseq",
+#'   "twist_exome", "idt_xgen". If the kit-specific BED is not bundled,
+#'   falls back to the standard exome BED with a warning. Ignored when
+#'   targets_bed is explicitly provided. Default NULL.
 #' @param targets_bed Character path to a BED file with capture kit regions.
-#'   Only used when experiment_type = "wes". When NULL, the standard exome BED
-#'   bundled in the package is used automatically (requires running
-#'   generate_standard_exome_bed.R once). Default NULL.
+#'   Only used when experiment_type = "wes". When NULL and capture_kit is also
+#'   NULL, the standard exome BED bundled in the package is used automatically.
+#'   Takes precedence over capture_kit when both are provided. Default NULL.
 #' @param min_reads Integer minimum number of reads for a bin to be considered
 #'   valid. Applied only to target bins in WES mode; antitarget bins are
 #'   filtered by the LOESS IQR step instead (default 0, no filtering).
@@ -523,24 +604,59 @@
 #' }
 #'
 #' @export
-read_bam_qc <- function(bam_path, bin_size = 500000L, genome_build = "hg19",
+read_bam_qc <- function(bam_path, bin_size = NULL, genome_build = "hg19",
                          min_mapq = 20L, gc_correction = FALSE,
                          sequencing_type = c("illumina", "nanopore"),
-                         experiment_type  = c("wgs", "wes"),
+                         experiment_type  = NULL,
                          min_mappability = 0.9,
                          targets_bed = NULL,
+                         capture_kit = NULL,
+                         normal_bam = NULL,
                          min_reads = 0L,
                          use_antitarget = FALSE,
                          antitarget_bin_size = 100000L,
                          split_targets = NULL,
                          target_bin_size = 267L,
+                         gc_loess_span = NULL,
                          pon = NULL) {
   sequencing_type <- match.arg(sequencing_type)
-  experiment_type  <- match.arg(experiment_type)
+
+  # Auto-detect experiment_type when not provided: presence of a BED or kit → WES
+  if (is.null(experiment_type)) {
+    experiment_type <- if (!is.null(targets_bed) || !is.null(capture_kit)) "wes" else "wgs"
+    message("  experiment_type auto-detected: '", experiment_type, "'.",
+            if (experiment_type == "wgs") " Provide targets_bed or capture_kit for WES." else "")
+  }
+  experiment_type <- match.arg(experiment_type, c("wgs", "wes"))
+
+  # Auto bin size: 500 kb for Illumina WGS/WES, 1 Mb for Nanopore low-pass WGS
+  if (is.null(bin_size))
+    bin_size <- if (sequencing_type == "nanopore") 1000000L else 500000L
+  bin_size <- as.integer(bin_size)
+
+  # Auto GC LOESS span: tight (0.03, HMMcopy) for Illumina short reads;
+  # smoother (0.75) for Nanopore to avoid overfitting noisy coverage profiles.
+  if (is.null(gc_loess_span))
+    gc_loess_span <- if (sequencing_type == "nanopore") 0.75 else 0.03
 
   # split_targets = NULL → auto: TRUE for WES (best default), FALSE for WGS
   if (is.null(split_targets))
     split_targets <- (experiment_type == "wes")
+
+  # Resolve capture_kit → targets_bed (only when targets_bed not explicitly given)
+  if (!is.null(capture_kit) && is.null(targets_bed) && experiment_type == "wes")
+    targets_bed <- .kit_to_bed(capture_kit, genome_build)
+
+  # Normal BAM: gc_correction and pon are superseded by the paired ratio
+  if (!is.null(normal_bam)) {
+    if (gc_correction)
+      message("  normal_bam provided: gc_correction will be skipped ",
+              "(GC bias is cancelled by the tumour/normal ratio).")
+    if (!is.null(pon))
+      message("  normal_bam provided: pon will be ignored ",
+              "(paired normal replaces the Panel of Normals).")
+    pon <- NULL
+  }
 
   # Auto-use standard exome BED in WES mode when no BED is provided.
   # Works regardless of sequencing_type (handles Illumina WES and any other).
@@ -623,12 +739,13 @@ read_bam_qc <- function(bam_path, bin_size = 500000L, genome_build = "hg19",
   # Computed from the ORIGINAL (pre-split) exon regions so that the
   # complement is correct regardless of whether split_targets is TRUE.
   n_target <- length(bins)
-  bin_type <- rep("target", n_target)
+  bin_type <- rep(if (experiment_type == "wes") "target" else "wgs", n_target)
 
   if (experiment_type == "wes" && use_antitarget) {
-    if (!gc_correction)
-      stop("use_antitarget = TRUE requires gc_correction = TRUE ",
-           "(BSgenome is needed to compute GC content for antitarget bins).")
+    if (!gc_correction && is.null(normal_bam))
+      message("  use_antitarget without gc_correction or normal_bam: ",
+              "antitarget bins will use median normalization (less accurate). ",
+              "Consider gc_correction = TRUE or supplying a normal_bam.")
     anti_source <- if (!is.null(original_targets)) original_targets else bins
     message("  Computing antitarget bins (bin size: ",
             round(antitarget_bin_size / 1000), " kb, min gap: 10 kb)...")
@@ -661,9 +778,45 @@ read_bam_qc <- function(bam_path, bin_size = 500000L, genome_build = "hg19",
 
   gc          <- NULL
   mappability <- NULL
-  log2_ratio  <- NULL   # set directly for WES + gc_correction (LOESS-log2 path)
+  log2_ratio  <- NULL   # set directly for WES + gc_correction or normal_bam path
 
-  if (gc_correction) {
+  # ── Paired normal BAM: depth-normalised log2(tumour / normal) ──────────────
+  if (!is.null(normal_bam)) {
+    message("  Paired normal BAM: validating compatibility...")
+    .check_bam_compatibility(bam_path, normal_bam)
+
+    message("  Counting reads in normal BAM...")
+    normal_param  <- Rsamtools::ScanBamParam(which      = bins,
+                                              mapqFilter = as.integer(min_mapq))
+    normal_counts <- Rsamtools::countBam(normal_bam, param = normal_param)
+    normal_reads  <- normal_counts$records
+
+    if (sum(normal_reads) == 0L)
+      stop("No reads counted in normal BAM '", basename(normal_bam), "'.")
+
+    # Depth-normalised ratio: log2[(tumour+0.5)/med_t / (normal+0.5)/med_n]
+    # pseudocount 0.5 avoids log(0) for zero-read bins while being negligible
+    # at typical WES coverage depths (>30×).
+    med_t <- stats::median(reads[reads > 0L], na.rm = TRUE)
+    med_n <- stats::median(normal_reads[normal_reads > 0L], na.rm = TRUE)
+    if (is.na(med_t) || med_t == 0)
+      stop("Tumour BAM has zero median coverage — check the BAM or the BED.")
+    if (is.na(med_n) || med_n == 0)
+      stop("Normal BAM has zero median coverage — check the BAM or the BED.")
+
+    tumor_norm  <- (reads         + 0.5) / med_t
+    normal_norm <- (normal_reads  + 0.5) / med_n
+    log2_ratio  <- log2(tumor_norm / normal_norm)
+
+    # WES: zero-read tumour bins are uncaptured regions → NA
+    if (experiment_type == "wes")
+      log2_ratio[is.na(reads) | reads == 0L] <- NA_real_
+
+    message("  log2(tumour/normal) ratio computed from ",
+            sum(!is.na(log2_ratio)), " bins.")
+  }
+
+  if (gc_correction && is.null(log2_ratio)) {
     if (experiment_type == "wes") {
       # WES: compute GC per exon from BSgenome, then normalise in log2 space
       # (CNVkit flat-reference style: residuals of log2(reads) ~ GC LOESS).
@@ -705,10 +858,11 @@ read_bam_qc <- function(bam_path, bin_size = 500000L, genome_build = "hg19",
         message("  Bins filtered by mappability < ", min_mappability, ": ", sum(low_map))
       }
 
-      message("  Applying LOESS GC correction...")
+      message("  Applying LOESS GC correction (span=", gc_loess_span, ")...")
       reads_for_loess        <- reads
       reads_for_loess[is.na(reads_for_loess)] <- 0
-      reads_corrected        <- .correct_gc_loess(reads_for_loess, gc)
+      reads_corrected        <- .correct_gc_loess(reads_for_loess, gc,
+                                                   span = gc_loess_span)
       reads_corrected[is.na(reads)] <- NA_real_
       reads <- reads_corrected
     }
@@ -748,8 +902,9 @@ read_bam_qc <- function(bam_path, bin_size = 500000L, genome_build = "hg19",
     bin_type   = bin_type,
     stringsAsFactors = FALSE
   )
-  if (!is.null(gc))          out$gc          <- gc
-  if (!is.null(mappability)) out$mappability <- mappability
+  if (!is.null(gc))           out$gc           <- gc
+  if (!is.null(mappability))  out$mappability  <- mappability
+  if (exists("normal_reads")) out$normal_reads <- normal_reads
 
   # ── PoN normalization ──────────────────────────────────────────────────────
   if (!is.null(pon)) {
@@ -937,8 +1092,9 @@ build_pon <- function(bam_paths,
                       genome_build        = "hg19",
                       sequencing_type     = c("illumina", "nanopore"),
                       experiment_type     = c("wgs", "wes"),
-                      bin_size            = 500000L,
+                      bin_size            = NULL,
                       targets_bed         = NULL,
+                      capture_kit         = NULL,
                       min_mapq            = 20L,
                       gc_correction       = TRUE,
                       use_antitarget      = FALSE,
@@ -971,6 +1127,7 @@ build_pon <- function(bam_paths,
       sequencing_type     = sequencing_type,
       experiment_type     = experiment_type,
       targets_bed         = targets_bed,
+      capture_kit         = capture_kit,
       min_reads           = 0L,
       use_antitarget      = use_antitarget,
       antitarget_bin_size = antitarget_bin_size,
@@ -1085,7 +1242,7 @@ build_pon <- function(bam_paths,
 run_bam_pipeline <- function(bam_path,
                               sample_id,
                               sequencing_type     = c("illumina", "nanopore"),
-                              experiment_type      = c("wgs", "wes"),
+                              experiment_type      = NULL,
                               bin_size            = NULL,
                               genome_build        = "hg19",
                               min_mapq            = 20L,
@@ -1093,20 +1250,20 @@ run_bam_pipeline <- function(bam_path,
                               alpha               = 0.01,
                               nperm               = 10000L,
                               targets_bed         = NULL,
+                              capture_kit         = NULL,
+                              normal_bam          = NULL,
                               min_reads           = 0L,
                               use_antitarget      = FALSE,
                               antitarget_bin_size = 100000L,
                               split_targets       = NULL,
                               target_bin_size     = 267L,
+                              gc_loess_span       = NULL,
                               pon                 = NULL,
                               ...) {
   sequencing_type <- match.arg(sequencing_type)
-  experiment_type  <- match.arg(experiment_type)
-
-  # Default bin size based on sequencing type
-  if (is.null(bin_size)) {
-    bin_size <- if (sequencing_type == "nanopore") 1000000L else 500000L
-  }
+  # experiment_type = NULL is passed through to read_bam_qc() for auto-detection
+  if (!is.null(experiment_type))
+    experiment_type <- match.arg(experiment_type, c("wgs", "wes"))
 
   message("Step 1/3: Counting reads per bin from BAM...")
   qc_data <- read_bam_qc(
@@ -1118,11 +1275,14 @@ run_bam_pipeline <- function(bam_path,
     sequencing_type     = sequencing_type,
     experiment_type     = experiment_type,
     targets_bed         = targets_bed,
+    capture_kit         = capture_kit,
+    normal_bam          = normal_bam,
     min_reads           = min_reads,
     use_antitarget      = use_antitarget,
     antitarget_bin_size = antitarget_bin_size,
     split_targets       = split_targets,
     target_bin_size     = target_bin_size,
+    gc_loess_span       = gc_loess_span,
     pon                 = pon
   )
 
@@ -1137,4 +1297,88 @@ run_bam_pipeline <- function(bam_path,
 
   message("Step 3/3: CNAppR re-segmentation and classification...")
   resegment_sample(seg_data, sample_id = sample_id, ...)
+}
+
+
+# ─── harmonize_segments ───────────────────────────────────────────────────────
+
+#' Harmonize CNA segment tables from multiple samples or platforms
+#'
+#' Concatenates segment data frames from different samples, sequencing types
+#' (WES, WGS), or platforms (array, SNP chip) into a single CNAppR-compatible
+#' table. Normalises chromosome names to a common style and attaches a
+#' \code{source} column for downstream stratification.
+#'
+#' @param segments_list Named list of segment data frames. Each element must
+#'   contain at least: \code{ID}, \code{chr}, \code{loc.start},
+#'   \code{loc.end}, \code{seg.mean}. Typically the output of
+#'   \code{resegment_sample()} or \code{run_cbs_segmentation()}.
+#' @param source Character vector of length 1 or \code{length(segments_list)}.
+#'   Label for each data frame's origin — e.g. \code{"wes"}, \code{"wgs"},
+#'   \code{"array"}. Recycled if length 1. Default \code{"unknown"}.
+#' @param chr_style Character: chromosome name normalisation in the output.
+#'   \code{"integer"} (1–22, 23 = X, 24 = Y; default), \code{"ucsc"}
+#'   (chr1–chr22, chrX, chrY), or \code{"keep"} (no normalisation).
+#'
+#' @return A single data frame with columns \code{ID}, \code{chr},
+#'   \code{loc.start}, \code{loc.end}, \code{seg.mean}, \code{source}.
+#'   Rows are concatenated in the input order. Additional columns present in
+#'   all input data frames (e.g. \code{BAF}, \code{purity}) are preserved;
+#'   columns absent in some data frames are filled with \code{NA}.
+#'
+#' @examples
+#' \dontrun{
+#'   # Mix WES and WGS segments in a cohort analysis
+#'   wes_segs <- lapply(wes_ids, function(id) resegment_sample(wes_data, id))
+#'   wgs_segs <- lapply(wgs_ids, function(id) resegment_sample(wgs_data, id))
+#'   all_segs <- harmonize_segments(
+#'     c(wes_segs, wgs_segs),
+#'     source = c(rep("wes", length(wes_segs)), rep("wgs", length(wgs_segs)))
+#'   )
+#'   scores <- calculate_cna_scores(split(all_segs, all_segs$ID))
+#' }
+#'
+#' @export
+harmonize_segments <- function(segments_list,
+                                source    = "unknown",
+                                chr_style = c("integer", "ucsc", "keep")) {
+  chr_style <- match.arg(chr_style)
+
+  if (!is.list(segments_list) || length(segments_list) == 0L)
+    stop("segments_list must be a non-empty list of data frames.")
+
+  required_cols <- c("ID", "chr", "loc.start", "loc.end", "seg.mean")
+  source        <- rep_len(as.character(source), length(segments_list))
+
+  result_list <- vector("list", length(segments_list))
+
+  for (i in seq_along(segments_list)) {
+    df <- segments_list[[i]]
+    if (!is.data.frame(df))
+      stop("Element ", i, " of segments_list is not a data frame.")
+    missing_cols <- setdiff(required_cols, colnames(df))
+    if (length(missing_cols) > 0L)
+      stop("Element ", i, " is missing required columns: ",
+           paste(missing_cols, collapse = ", "))
+
+    out <- df
+    out$chr <- switch(chr_style,
+      integer = .norm_chr_to_int(out$chr),
+      ucsc    = .norm_chr_to_ucsc(out$chr),
+      keep    = as.character(out$chr)
+    )
+    out$source <- source[i]
+    result_list[[i]] <- out
+  }
+
+  # rbind with NA-fill for columns present in only some data frames
+  all_cols <- unique(unlist(lapply(result_list, colnames)))
+  result_list <- lapply(result_list, function(df) {
+    missing <- setdiff(all_cols, colnames(df))
+    if (length(missing) > 0L)
+      df[missing] <- NA
+    df[, all_cols, drop = FALSE]
+  })
+
+  do.call(rbind, result_list)
 }
