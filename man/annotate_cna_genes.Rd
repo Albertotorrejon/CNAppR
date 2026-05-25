@@ -29,13 +29,19 @@ fall within its coordinates.
 Reference files are RefSeq (UCSC) for hg19 and hg38, bundled with the
 package. A gene is considered within a segment if its coordinates
 overlap with the segment start and end positions.
+
+The annotated output feeds directly into build_gene_ranks(), which
+converts segment-level annotations into a per-gene rank vector
+suitable for run_gsea().
 }
 \examples{
 \dontrun{
-  reseg <- resegment_sample(data, sample_id = "sample_01")
+  reseg     <- resegment_sample(data, sample_id = "sample_01")
   reseg_ann <- annotate_cna_genes(reseg, genome_build = "hg19")
-  head(reseg_ann[!is.na(reseg_ann$genes),
-                 c("chr", "loc.start", "loc.end", "type", "genes")])
+
+  # GSEA pipeline
+  ranks    <- build_gene_ranks(reseg_ann)
+  gsea_res <- run_gsea(ranks, collections = "H")
 }
 
 }

@@ -382,6 +382,9 @@
 <div class="feature-card p-3 rounded-lg border border-transparent hover:border-primary/30 cursor-pointer flex items-center gap-3 transition-all active" onclick="showFeature('test_clinical_association', 'Clinical testing', 'Correlate CNA scores with clinical variables.', 'clinical_notes', this)">
 <span class="text-label-mono font-label-mono text-primary text-[11px] bg-primary/5 px-2 py-1 rounded">test_clinical_association()</span>
 </div>
+<div class="feature-card p-3 rounded-lg border border-transparent hover:border-primary/30 cursor-pointer flex items-center gap-3 transition-all" onclick="showFeature('compute_region_frequencies', 'Region frequencies', 'Cohort-level gain/loss frequency per cytoband.', 'area_chart', this)">
+<span class="text-label-mono font-label-mono text-primary text-[11px] bg-primary/5 px-2 py-1 rounded">compute_region_frequencies()</span>
+</div>
 </div>
 </div>
 </div>
@@ -396,8 +399,34 @@
 </button>
 <div class="accordion-content">
 <div class="p-3 space-y-2">
-<div class="feature-card p-3 rounded-lg border border-transparent hover:border-primary/30 cursor-pointer flex items-center gap-3 transition-all" onclick="showFeature('run_bam_pipeline', 'Full BAM pipeline', 'Wrapper: BAM -&gt; segments -&gt; scores in one call.', 'account_tree', this)">
+<div class="feature-card p-3 rounded-lg border border-transparent hover:border-primary/30 cursor-pointer flex items-center gap-3 transition-all" onclick="showFeature('run_bam_pipeline', 'Full BAM pipeline', 'Wrapper: BAM → segments → scores in one call.', 'account_tree', this)">
 <span class="text-label-mono font-label-mono text-primary text-[11px] bg-primary/5 px-2 py-1 rounded">run_bam_pipeline()</span>
+</div>
+<div class="feature-card p-3 rounded-lg border border-transparent hover:border-primary/30 cursor-pointer flex items-center gap-3 transition-all" onclick="showFeature('harmonize_segments', 'Multi-platform harmonisation', 'Merge WES, WGS and array segment tables into one.', 'merge', this)">
+<span class="text-label-mono font-label-mono text-primary text-[11px] bg-primary/5 px-2 py-1 rounded">harmonize_segments()</span>
+</div>
+</div>
+</div>
+</div>
+<!-- 6. GSEA & Survival -->
+<div class="accordion-item bg-white border border-outline-variant rounded-xl overflow-hidden shadow-sm" id="cat-gsea">
+<button class="w-full flex items-center justify-between p-5 bg-surface-container-low/30 hover:bg-surface-container-low transition-colors" onclick="toggleAccordion('cat-gsea')">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">biotech</span>
+<span class="text-headline-md font-bold text-on-surface text-[18px]">6. GSEA &amp; Survival</span>
+</div>
+<span class="material-symbols-outlined chevron transition-transform text-outline">expand_more</span>
+</button>
+<div class="accordion-content">
+<div class="p-3 space-y-2">
+<div class="feature-card p-3 rounded-lg border border-transparent hover:border-primary/30 cursor-pointer flex items-center gap-3 transition-all" onclick="showFeature('build_gene_ranks', 'Gene rank vector', 'Convert CNA segments to a ranked gene vector for GSEA.', 'sort', this)">
+<span class="text-label-mono font-label-mono text-primary text-[11px] bg-primary/5 px-2 py-1 rounded">build_gene_ranks()</span>
+</div>
+<div class="feature-card p-3 rounded-lg border border-transparent hover:border-primary/30 cursor-pointer flex items-center gap-3 transition-all" onclick="showFeature('run_gsea', 'Pathway enrichment (GSEA)', 'Pre-ranked GSEA against MSigDB via fgsea.', 'route', this)">
+<span class="text-label-mono font-label-mono text-primary text-[11px] bg-primary/5 px-2 py-1 rounded">run_gsea()</span>
+</div>
+<div class="feature-card p-3 rounded-lg border border-transparent hover:border-primary/30 cursor-pointer flex items-center gap-3 transition-all" onclick="showFeature('run_survival_analysis', 'Survival analysis', 'Kaplan-Meier and log-rank test stratified by CNA score.', 'cardiology', this)">
+<span class="text-label-mono font-label-mono text-primary text-[11px] bg-primary/5 px-2 py-1 rounded">run_survival_analysis()</span>
 </div>
 </div>
 </div>
@@ -485,7 +514,7 @@
 <!-- Team Member 4 -->
 <div class="bg-white p-6 rounded-2xl border border-outline-variant text-center hover:shadow-lg transition-shadow">
 <div class="w-24 h-24 rounded-full mx-auto mb-4 overflow-hidden relative border-2 border-surface-dim">
-<img alt="Alberto Torrejón Aquino" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida/ADBb0uhpNCPndr77_40i_XCBongYFVh3SMOslLQSaci8vC_jH_0rJAa__PD_61HfhL9R2gne2vc7o5OLX4akN_HzOdbbu0VN4lMOinKM5vNnSr5ULGjhEu0Qby4c590cmgmwjQ71sLQ6KHSoiIGoti_fvmRvbbQ6OxIUKcY9Cj-6jL7lHFR4hbGFN8vkZYL03-2q49uqWaYUrDHjQKU082GzO2KCh5LNCx2DTCDGlmVcDbtcV_cJ5rnIsYgxrmZtqL8mfoC3kQfhr-zb">
+<img alt="Alberto Torrejón Aquino" class="w-full h-full object-cover" src="https://media.licdn.com/dms/image/v2/D4D03AQG_y-uiQ9MFZA/profile-displayphoto-scale_400_400/B4DZ0G_as6J4Ag-/0/1773938781683?e=1781136000&v=beta&t=E0tG8cRyM_Rdx2VYAzms1jEt9mLvgKuKeRaa1JEMNTI">
 </div>
 <h4 class="text-headline-md font-headline-md text-on-surface mb-1 text-[18px]">Alberto Torrejón Aquino</h4>
 <p class="text-label-mono font-label-mono text-primary uppercase text-[10px] mb-2">CNAppR 2.0 — R Package Author</p>
@@ -641,7 +670,57 @@ validate_cna_data(data)
 <span class="text-outline italic">#  · Required columns present</span>
 <span class="text-outline italic">#  · Correct data types (chr integer, seg.mean numeric)</span>
 <span class="text-outline italic">#  · chr values in 1–22</span>
-<span class="text-outline italic">#  · loc.start &lt; loc.end for all rows</span>`
+<span class="text-outline italic">#  · loc.start &lt; loc.end for all rows</span>`,
+
+        'harmonize_segments': `<span class="text-outline italic"># Merge WES + WGS + array segments into one table</span>
+<span class="text-clinical-blue font-bold">all_segs</span> &lt;- harmonize_segments(
+  c(wes_segs, wgs_segs),
+  source    = c(rep(<span class="text-secondary font-medium">"wes"</span>, length(wes_segs)),
+                rep(<span class="text-secondary font-medium">"wgs"</span>, length(wgs_segs))),
+  chr_style = <span class="text-secondary font-medium">"integer"</span>
+)
+
+scores &lt;- calculate_cna_scores(split(all_segs, all_segs$ID))`,
+
+        'build_gene_ranks': `<span class="text-outline italic"># Build a gene rank vector from annotated CNA segments</span>
+<span class="text-clinical-blue font-bold">ann</span>   &lt;- annotate_cna_genes(reseg, genome_build = <span class="text-secondary font-medium">"hg19"</span>)
+<span class="text-clinical-blue font-bold">ranks</span> &lt;- build_gene_ranks(ann, score_col = <span class="text-secondary font-medium">"seg.mean"</span>)
+
+<span class="text-outline italic"># Named numeric vector — positive = amplified, negative = deleted</span>
+head(ranks)`,
+
+        'run_gsea': `<span class="text-outline italic"># Pre-ranked GSEA against MSigDB Hallmark + C2</span>
+<span class="text-clinical-blue font-bold">res</span> &lt;- run_gsea(
+  ranks,
+  collections = c(<span class="text-secondary font-medium">"H"</span>, <span class="text-secondary font-medium">"C2"</span>),
+  alpha       = 0.25,
+  top_n       = 20
+)
+
+res$plot           <span class="text-outline italic"># NES barplot</span>
+head(res$significant)  <span class="text-outline italic"># significant pathways</span>`,
+
+        'run_survival_analysis': `<span class="text-outline italic"># Kaplan-Meier stratified by GCS (median split)</span>
+<span class="text-clinical-blue font-bold">km</span> &lt;- run_survival_analysis(
+  scores        = scores,
+  survival_data = surv_df,
+  score_var     = <span class="text-secondary font-medium">"GCS"</span>,
+  n_groups      = 2,
+  time_col      = <span class="text-secondary font-medium">"time"</span>,
+  event_col     = <span class="text-secondary font-medium">"event"</span>
+)
+
+km$plot    <span class="text-outline italic"># Kaplan-Meier curve</span>
+km$pvalue  <span class="text-outline italic"># log-rank p-value</span>`,
+
+        'compute_region_frequencies': `<span class="text-outline italic"># Compute gain/loss frequency per cytoband across a cohort</span>
+<span class="text-clinical-blue font-bold">freq</span> &lt;- compute_region_frequencies(
+  reseg_list,
+  gain_thr = 0.2,
+  loss_thr = -0.2
+)
+
+<span class="text-outline italic"># Returns frequency per cytoband — feeds plot_cn_frequency()</span>`
     };
 
     const details = {
@@ -752,6 +831,54 @@ validate_cna_data(data)
                 { name: 'data', desc: 'Segment data.frame to validate' },
             ],
             returns: 'Invisible data.frame (throws descriptive error if invalid)'
+        },
+        'harmonize_segments': {
+            long: 'Merges segment tables from different assay types (WES, WGS, SNP array) into a single data.frame with a consistent schema. Adds a source column so downstream functions can stratify by platform. Useful for multi-cohort analyses where samples were profiled with different technologies.',
+            params: [
+                { name: 'seg_list', desc: 'List of segment data.frames, one per assay batch' },
+                { name: 'source', desc: 'Character vector of labels matching seg_list (e.g. c("wes", "wgs"))' },
+                { name: 'genome_build', desc: '"hg19" or "hg38" — must be consistent across all inputs' },
+            ],
+            returns: 'Unified data.frame with columns ID, chr, loc.start, loc.end, seg.mean, source'
+        },
+        'compute_region_frequencies': {
+            long: 'Computes the fraction of samples in a cohort that show a copy number gain or loss in each genomic region (cytoband or fixed bin). Produces a frequency table suitable for cohort-level frequency plots.',
+            params: [
+                { name: 'reseg_list', desc: 'Named list of re-segmented data.frames (output of resegment_sample())' },
+                { name: 'gain_thr', desc: 'log2 threshold above which a segment is called a gain (default 0.2)' },
+                { name: 'loss_thr', desc: 'log2 threshold below which a segment is called a loss (default -0.2)' },
+                { name: 'resolution', desc: '"cytoband" (default) or "bin" — granularity of the frequency table' },
+            ],
+            returns: 'data.frame with columns region, freq_gain, freq_loss'
+        },
+        'build_gene_ranks': {
+            long: 'Converts an annotated CNA segment table into a named numeric vector of per-gene scores required as input for pre-ranked GSEA. Each gene is assigned the seg.mean of the segment it overlaps. When a gene overlaps multiple segments, the value with the largest absolute magnitude is used.',
+            params: [
+                { name: 'annotated_segs', desc: 'data.frame from annotate_cna_genes() with gene-level annotations' },
+                { name: 'score_col', desc: 'Column to use as rank score — typically "seg.mean" (default)' },
+            ],
+            returns: 'Named numeric vector (gene symbol to score), sorted descending'
+        },
+        'run_gsea': {
+            long: 'Runs pre-ranked gene set enrichment analysis (GSEA) using fgsea against one or more MSigDB collections fetched via msigdbr. Returns a results table with NES, p-value, and adjusted p-value for each pathway, the subset of statistically significant pathways, and a bar plot of the top hits.',
+            params: [
+                { name: 'ranks', desc: 'Named numeric vector from build_gene_ranks()' },
+                { name: 'collections', desc: 'MSigDB collection codes, e.g. c("H", "C2") for Hallmark and curated gene sets' },
+                { name: 'species', desc: 'Species name passed to msigdbr (default "Homo sapiens")' },
+                { name: 'nperm', desc: 'Number of permutations for p-value estimation (default 1000)' },
+                { name: 'padj_thr', desc: 'FDR threshold for the significant subset (default 0.05)' },
+            ],
+            returns: 'List with $all (full results data.frame), $significant (filtered), $plot (ggplot2 bar chart)'
+        },
+        'run_survival_analysis': {
+            long: 'Stratifies samples by a CNA score (FCS, BCS, or GCS) using median split and performs Kaplan-Meier survival estimation with a log-rank test. Produces a publication-ready KM plot via survminer. Requires the survival and survminer packages.',
+            params: [
+                { name: 'scores', desc: 'data.frame from calculate_cna_scores() with columns ID, FCS, BCS, GCS' },
+                { name: 'survival_data', desc: 'data.frame with columns ID, time (numeric), status (0/1)' },
+                { name: 'score_col', desc: 'Which score to stratify on: "FCS", "BCS", or "GCS" (default "GCS")' },
+                { name: 'split', desc: 'Stratification method: "median" (default) or a numeric cutoff' },
+            ],
+            returns: 'List with $km (survfit object), $plot (ggsurvplot), $pvalue (log-rank p-value)'
         },
     };
 

@@ -15,23 +15,30 @@ prepare_annotation_data(
 \arguments{
 \item{data}{Main data frame (from read_cna_file()).}
 
-\item{annot_filepath}{Character path to annotation file.}
+\item{annot_filepath}{Character path to annotation file (tab-separated,
+with header). Must contain a column named by sample_var.}
 
-\item{sep}{Character field separator for annotation file.}
+\item{sep}{Character field separator for annotation file (default "\t").}
 
-\item{dec}{Character decimal separator for annotation file.}
+\item{dec}{Character decimal separator for annotation file (default ".").}
 
-\item{sample_var}{Character name of sample ID column.}
+\item{sample_var}{Character name of sample ID column in both data frames
+(default "ID").}
 }
 \value{
-Merged data frame with annotation columns appended.
+The original data frame with annotation columns appended. Rows
+  and their order are preserved. Samples in data without an annotation
+  entry receive NA in all appended columns. Annotation columns that
+  already exist in data are silently replaced by the annotation values.
 }
 \description{
-Reads and merges annotation/clinical data with main CNA data.
+Reads and merges annotation/clinical data with the main CNA data frame.
+Each annotation row is broadcast to all CNA rows belonging to the same
+sample (many-to-one join on the sample ID column).
 }
 \details{
-Annotation file must have an ID column matching sample_var in main data.
-Data is merged by matching sample IDs.
+Merging is done with base::merge() (left join), which is substantially
+faster than a row-by-row loop for large cohorts.
 }
 \examples{
 \dontrun{

@@ -7,7 +7,7 @@
 # ─── internal helpers ────────────────────────────────────────────────────────
 
 # Retrieves gene sets from MSigDB via msigdbr, handles API differences across
-# msigdbr versions (≥7.5.1 uses category=; 2024+ may use collection=).
+# msigdbr versions (≥7.5.1 uses category=; 10.0.0+ uses collection=).
 .build_msigdb_genesets <- function(collections, species) {
   if (!requireNamespace("msigdbr", quietly = TRUE))
     stop("Package 'msigdbr' is required.\nInstall with: install.packages('msigdbr')")
@@ -16,11 +16,16 @@
 
   for (coll in collections) {
     db <- tryCatch(
-      msigdbr::msigdbr(species = species, category = coll),
+      msigdbr::msigdbr(species = species, collection = coll),
       error = function(e) {
-        warning("Could not fetch MSigDB collection '", coll,
-                "': ", conditionMessage(e))
-        NULL
+        tryCatch(
+          msigdbr::msigdbr(species = species, category = coll),
+          error = function(e2) {
+            warning("Could not fetch MSigDB collection '", coll,
+                    "': ", conditionMessage(e2))
+            NULL
+          }
+        )
       }
     )
     if (is.null(db) || nrow(db) == 0L) {

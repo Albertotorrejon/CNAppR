@@ -6,54 +6,74 @@
 \usage{
 read_bam_qc(
   bam_path,
-  bin_size = 500000L,
+  bin_size = NULL,
   genome_build = "hg19",
   min_mapq = 20L,
   gc_correction = FALSE,
   sequencing_type = c("illumina", "nanopore"),
-  experiment_type = c("wgs", "wes"),
+  experiment_type = NULL,
   min_mappability = 0.9,
   targets_bed = NULL,
+  capture_kit = NULL,
+  normal_bam = NULL,
   min_reads = 0L,
   use_antitarget = FALSE,
   antitarget_bin_size = 100000L,
   split_targets = NULL,
   target_bin_size = 267L,
+  gc_loess_span = NULL,
   pon = NULL
 )
 }
 \arguments{
 \item{bam_path}{Character path to the BAM file (must be indexed, .bai).}
 
-\item{bin_size}{Integer bin size in bp (default 500000 for WES,
-use 1000000 for low-pass Nanopore).}
+\item{bin_size}{Integer bin size in bp. Default NULL = auto: 500,000 bp
+for Illumina, 1,000,000 bp for Nanopore low-pass WGS. Ignored in WES
+mode when a targets BED is provided.}
 
 \item{genome_build}{Character "hg19" or "hg38" (default "hg19"). Used
 only as metadata; chromosome sizes are read from the BAM header.}
 
 \item{min_mapq}{Integer minimum mapping quality to include (default 20).}
 
-\item{gc_correction}{Logical, apply HMMcopy-style GC content correction
-using pre-computed tables included in the package (default FALSE).
-Recommended for low-pass WGS and WES.}
+\item{gc_correction}{Logical, apply GC content correction (default FALSE).
+WGS: HMMcopy-style LOESS on raw reads using pre-computed tables.
+WES: CNVkit flat-reference style LOESS in log2 space via BSgenome.
+Recommended for all experiment types.}
 
 \item{sequencing_type}{Character "illumina" or "nanopore". Controls
-mappability filtering (Illumina only) and smooth.region in CBS.
-Does NOT determine WGS vs WES — use experiment_type for that.}
+mappability filtering (Illumina only), CBS smooth.region, default
+bin_size, and GC LOESS span. Does NOT determine WGS vs WES.}
 
 \item{experiment_type}{Character "wes" or "wgs" (default "wgs").
-"wes": bins are created from targets_bed (or the standard exome BED);
-bins with zero reads become NA instead of a large negative log2.
-"wgs": fixed genome-wide bins via tileGenome; zero-read bins keep
-their log2 value (needed to detect deep deletions).}
+"wes": bins from targets_bed; zero-read bins become NA.
+"wgs": fixed genome-wide bins; zero-read bins keep large negative log2
+(needed to detect deep deletions).}
 
 \item{min_mappability}{Numeric minimum mappability threshold for filtering
-bins in Illumina data (default 0.9). Ignored for Nanopore.}
+Illumina WGS bins (default 0.9). Ignored for Nanopore.}
 
 \item{targets_bed}{Character path to a BED file with capture kit regions.
-Only used when experiment_type = "wes". When NULL, the standard exome BED
-bundled in the package is used automatically (requires running
-generate_standard_exome_bed.R once). Default NULL.}
+Only used when experiment_type = "wes". When NULL and capture_kit is also
+NULL, the standard exome BED bundled in the package is used automatically.
+Takes precedence over capture_kit when both are provided. Default NULL.}
+
+\item{capture_kit}{Character name of the capture kit used for WES.
+When provided, automatically selects the corresponding BED file bundled
+in inst/extdata/ for the specified genome_build. Supported values:
+"standard" (default), "agilent_v7", "agilent_v6", "illumina_truseq",
+"twist_exome", "idt_xgen". If the kit-specific BED is not bundled,
+falls back to the standard exome BED with a warning. Ignored when
+targets_bed is explicitly provided. Default NULL.}
+
+\item{normal_bam}{Character path to a matched normal BAM file (optional).
+When provided, read counts are depth-normalised and the log2 ratio is
+computed as log2(tumour/normal), removing systematic capture bias without
+needing BSgenome or a Panel of Normals. gc_correction and pon are ignored
+when normal_bam is supplied. The normal BAM must have a .bai index and
+must have been aligned to the same reference genome as the tumour BAM.
+Default NULL (no paired normal).}
 
 \item{min_reads}{Integer minimum number of reads for a bin to be considered
 valid. Applied only to target bins in WES mode; antitarget bins are
@@ -78,6 +98,11 @@ NULL (default) means automatic: TRUE for WES, FALSE for WGS.}
 \item{target_bin_size}{Integer target sub-bin size in bp when
 split_targets = TRUE (default 267, the CNVkit default).  Exons smaller
 than this value are kept as single bins.}
+
+\item{gc_loess_span}{Numeric LOESS bandwidth for WGS GC correction.
+Default NULL = auto: 0.03 for Illumina (HMMcopy default, tight fit);
+0.75 for Nanopore (smoother fit, less prone to overfitting noisy
+low-pass coverage). Override with any value in (0, 1].}
 
 \item{pon}{Optional Panel of Normals object produced by build_pon(). When
 provided, the per-bin PoN median log2 is subtracted from the tumour log2

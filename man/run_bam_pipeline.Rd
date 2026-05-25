@@ -8,7 +8,7 @@ run_bam_pipeline(
   bam_path,
   sample_id,
   sequencing_type = c("illumina", "nanopore"),
-  experiment_type = c("wgs", "wes"),
+  experiment_type = NULL,
   bin_size = NULL,
   genome_build = "hg19",
   min_mapq = 20L,
@@ -16,11 +16,14 @@ run_bam_pipeline(
   alpha = 0.01,
   nperm = 10000L,
   targets_bed = NULL,
+  capture_kit = NULL,
+  normal_bam = NULL,
   min_reads = 0L,
   use_antitarget = FALSE,
   antitarget_bin_size = 100000L,
   split_targets = NULL,
   target_bin_size = 267L,
+  gc_loess_span = NULL,
   pon = NULL,
   ...
 )
@@ -32,10 +35,10 @@ run_bam_pipeline(
 
 \item{sequencing_type}{Character "illumina" or "nanopore".}
 
-\item{experiment_type}{Character "wgs" or "wes". Controls whether bins come
-from fixed genome-wide windows ("wgs") or a capture kit BED ("wes").
-Independent of sequencing_type: you can have Illumina WGS or Nanopore WES.
-Default "wgs".}
+\item{experiment_type}{Character "wgs" or "wes", or NULL (default). Controls
+whether bins come from fixed genome-wide windows ("wgs") or a capture kit
+BED ("wes"). When NULL, auto-detected: "wes" if targets_bed or capture_kit
+is provided, "wgs" otherwise. Independent of sequencing_type.}
 
 \item{bin_size}{Integer bin size in bp for read counting.
 Default 500000 (Illumina) or 1000000 (Nanopore).}

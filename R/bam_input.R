@@ -1192,10 +1192,10 @@ build_pon <- function(bam_paths,
 #' @param min_mapq Integer minimum mapping quality (default 20).
 #' @param alpha Numeric CBS significance level (default 0.01).
 #' @param nperm Integer CBS permutations (default 10000).
-#' @param experiment_type Character "wgs" or "wes". Controls whether bins come
-#'   from fixed genome-wide windows ("wgs") or a capture kit BED ("wes").
-#'   Independent of sequencing_type: you can have Illumina WGS or Nanopore WES.
-#'   Default "wgs".
+#' @param experiment_type Character "wgs" or "wes", or NULL (default). Controls
+#'   whether bins come from fixed genome-wide windows ("wgs") or a capture kit
+#'   BED ("wes"). When NULL, auto-detected: "wes" if targets_bed or capture_kit
+#'   is provided, "wgs" otherwise. Independent of sequencing_type.
 #' @param targets_bed Character path to a BED file with capture kit regions.
 #'   Only used when experiment_type = "wes". When NULL, the standard exome BED
 #'   bundled in the package is used automatically. Default NULL.
