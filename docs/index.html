@@ -339,6 +339,9 @@
 <div class="feature-card p-3 rounded-lg border border-transparent hover:border-primary/30 cursor-pointer flex items-center gap-3 transition-all" onclick="showFeature('build_pon', 'Panel of Normals', 'Build a PoN matrix from normal BAM files.', 'group_work', this)">
 <span class="text-label-mono font-label-mono text-primary text-[11px] bg-primary/5 px-2 py-1 rounded">build_pon()</span>
 </div>
+<div class="feature-card p-3 rounded-lg border border-transparent hover:border-primary/30 cursor-pointer flex items-center gap-3 transition-all" onclick="showFeature('harmonize_segments', 'Multi-platform harmonisation', 'Merge WES, WGS and array segment tables into one.', 'merge', this)">
+<span class="text-label-mono font-label-mono text-primary text-[11px] bg-primary/5 px-2 py-1 rounded">harmonize_segments()</span>
+</div>
 </div>
 </div>
 </div>
@@ -385,15 +388,38 @@
 <div class="feature-card p-3 rounded-lg border border-transparent hover:border-primary/30 cursor-pointer flex items-center gap-3 transition-all" onclick="showFeature('compute_region_frequencies', 'Region frequencies', 'Cohort-level gain/loss frequency per cytoband.', 'area_chart', this)">
 <span class="text-label-mono font-label-mono text-primary text-[11px] bg-primary/5 px-2 py-1 rounded">compute_region_frequencies()</span>
 </div>
+<div class="feature-card p-3 rounded-lg border border-transparent hover:border-primary/30 cursor-pointer flex items-center gap-3 transition-all" onclick="showFeature('build_gene_ranks', 'Gene rank vector', 'Convert CNA segments to a ranked gene vector for GSEA.', 'sort', this)">
+<span class="text-label-mono font-label-mono text-primary text-[11px] bg-primary/5 px-2 py-1 rounded">build_gene_ranks()</span>
+</div>
+<div class="feature-card p-3 rounded-lg border border-transparent hover:border-primary/30 cursor-pointer flex items-center gap-3 transition-all" onclick="showFeature('run_gsea', 'Pathway enrichment (GSEA)', 'Pre-ranked GSEA against MSigDB via fgsea.', 'route', this)">
+<span class="text-label-mono font-label-mono text-primary text-[11px] bg-primary/5 px-2 py-1 rounded">run_gsea()</span>
 </div>
 </div>
 </div>
-<!-- 5. Pipelines -->
-<div class="accordion-item bg-white border border-outline-variant rounded-xl overflow-hidden shadow-sm open" id="cat-pipelines">
+</div>
+<!-- 5. Survival -->
+<div class="accordion-item bg-white border border-outline-variant rounded-xl overflow-hidden shadow-sm" id="cat-gsea">
+<button class="w-full flex items-center justify-between p-5 bg-surface-container-low/30 hover:bg-surface-container-low transition-colors" onclick="toggleAccordion('cat-gsea')">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">cardiology</span>
+<span class="text-headline-md font-bold text-on-surface text-[18px]">5. Survival</span>
+</div>
+<span class="material-symbols-outlined chevron transition-transform text-outline">expand_more</span>
+</button>
+<div class="accordion-content">
+<div class="p-3 space-y-2">
+<div class="feature-card p-3 rounded-lg border border-transparent hover:border-primary/30 cursor-pointer flex items-center gap-3 transition-all" onclick="showFeature('run_survival_analysis', 'Survival analysis', 'Kaplan-Meier and log-rank test stratified by CNA score.', 'cardiology', this)">
+<span class="text-label-mono font-label-mono text-primary text-[11px] bg-primary/5 px-2 py-1 rounded">run_survival_analysis()</span>
+</div>
+</div>
+</div>
+</div>
+<!-- 6. Pipeline -->
+<div class="accordion-item bg-white border border-outline-variant rounded-xl overflow-hidden shadow-sm" id="cat-pipelines">
 <button class="w-full flex items-center justify-between p-5 bg-surface-container-low/30 hover:bg-surface-container-low transition-colors" onclick="toggleAccordion('cat-pipelines')">
 <div class="flex items-center gap-3">
 <span class="material-symbols-outlined text-primary">auto_mode</span>
-<span class="text-headline-md font-bold text-on-surface text-[18px]">5. Pipelines</span>
+<span class="text-headline-md font-bold text-on-surface text-[18px]">6. Pipeline</span>
 </div>
 <span class="material-symbols-outlined chevron transition-transform text-outline">expand_more</span>
 </button>
@@ -401,32 +427,6 @@
 <div class="p-3 space-y-2">
 <div class="feature-card p-3 rounded-lg border border-transparent hover:border-primary/30 cursor-pointer flex items-center gap-3 transition-all" onclick="showFeature('run_bam_pipeline', 'Full BAM pipeline', 'Wrapper: BAM → segments → scores in one call.', 'account_tree', this)">
 <span class="text-label-mono font-label-mono text-primary text-[11px] bg-primary/5 px-2 py-1 rounded">run_bam_pipeline()</span>
-</div>
-<div class="feature-card p-3 rounded-lg border border-transparent hover:border-primary/30 cursor-pointer flex items-center gap-3 transition-all" onclick="showFeature('harmonize_segments', 'Multi-platform harmonisation', 'Merge WES, WGS and array segment tables into one.', 'merge', this)">
-<span class="text-label-mono font-label-mono text-primary text-[11px] bg-primary/5 px-2 py-1 rounded">harmonize_segments()</span>
-</div>
-</div>
-</div>
-</div>
-<!-- 6. GSEA & Survival -->
-<div class="accordion-item bg-white border border-outline-variant rounded-xl overflow-hidden shadow-sm" id="cat-gsea">
-<button class="w-full flex items-center justify-between p-5 bg-surface-container-low/30 hover:bg-surface-container-low transition-colors" onclick="toggleAccordion('cat-gsea')">
-<div class="flex items-center gap-3">
-<span class="material-symbols-outlined text-primary">biotech</span>
-<span class="text-headline-md font-bold text-on-surface text-[18px]">6. GSEA &amp; Survival</span>
-</div>
-<span class="material-symbols-outlined chevron transition-transform text-outline">expand_more</span>
-</button>
-<div class="accordion-content">
-<div class="p-3 space-y-2">
-<div class="feature-card p-3 rounded-lg border border-transparent hover:border-primary/30 cursor-pointer flex items-center gap-3 transition-all" onclick="showFeature('build_gene_ranks', 'Gene rank vector', 'Convert CNA segments to a ranked gene vector for GSEA.', 'sort', this)">
-<span class="text-label-mono font-label-mono text-primary text-[11px] bg-primary/5 px-2 py-1 rounded">build_gene_ranks()</span>
-</div>
-<div class="feature-card p-3 rounded-lg border border-transparent hover:border-primary/30 cursor-pointer flex items-center gap-3 transition-all" onclick="showFeature('run_gsea', 'Pathway enrichment (GSEA)', 'Pre-ranked GSEA against MSigDB via fgsea.', 'route', this)">
-<span class="text-label-mono font-label-mono text-primary text-[11px] bg-primary/5 px-2 py-1 rounded">run_gsea()</span>
-</div>
-<div class="feature-card p-3 rounded-lg border border-transparent hover:border-primary/30 cursor-pointer flex items-center gap-3 transition-all" onclick="showFeature('run_survival_analysis', 'Survival analysis', 'Kaplan-Meier and log-rank test stratified by CNA score.', 'cardiology', this)">
-<span class="text-label-mono font-label-mono text-primary text-[11px] bg-primary/5 px-2 py-1 rounded">run_survival_analysis()</span>
 </div>
 </div>
 </div>
