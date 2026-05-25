@@ -83,22 +83,27 @@ resegment_sample <- function(data,
     }
   }
 
-  # ===== Purity Correction =====
-  r_lim <- 0.4
-  loss_lim <- log2((1 / 2) * r_lim)
+  # ===== Purity Correction (disabled) =====
+  # The original CNApp applied purity correction using a minimum floor of 0.4.
+  # This floor is inappropriate for liquid biopsy (tumor fraction 5-15%) and
+  # would overcorrect seg.mean values in that context. Users requiring purity
+  # correction should apply it externally (e.g. using ichorCNA tumor fraction
+  # estimates) before passing segments to resegment_sample().
+  #
+  # r_lim <- 0.4
+  # if (!is.null(file$purity) && !is.na(file$purity[1])) {
+  #   r <- file$purity[1]
+  #   if (r < r_lim) r <- r_lim
+  #   v <- file$seg.mean
+  #   file$seg.mean <- sapply(v, function(n, r) {
+  #     inside_log <- (2^n + (r - 1)) / r
+  #     if (inside_log <= 2^log2((1/2) * r_lim)) inside_log <- 2^log2((1/2) * r_lim)
+  #     log2(inside_log)
+  #   }, r = r)
+  #   file$seg.mean <- ifelse(is.na(file$seg.mean), 0, file$seg.mean)
+  # }
 
-  if (!is.null(file$purity) && !is.na(file$purity[1])) {
-    r <- file$purity[1]
-    if (r < r_lim) r <- r_lim
-
-    v <- file$seg.mean
-    file$seg.mean <- sapply(v, function(n, r) {
-      inside_log <- (2^n + (r - 1)) / r
-      if (inside_log <= 2^loss_lim) inside_log <- 2^loss_lim
-      log2(inside_log)
-    }, r = r)
-    file$seg.mean <- ifelse(is.na(file$seg.mean), 0, file$seg.mean)
-  }
+  loss_lim <- log2(0.2)  # cap floor: log2((1/2) * 0.4)
 
   # ===== Cap seg.mean always =====
   file$seg.mean <- sapply(file$seg.mean, function(n) {
