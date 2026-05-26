@@ -5,6 +5,15 @@
 #' @param min_length Numeric minimum segment length in bp (default 100000).
 #' @param max_dist_segm Numeric maximum distance between segments to consider merging (bp, default 1000000).
 #' @param percent_dist Numeric percentage-based distance threshold (default 2).
+#' @param sample_type Character. Either "solid_tumor" (default) or "liquid_biopsy".
+#'   Controls default thresholds when purity is not provided. In liquid biopsy
+#'   mode, dev_tozero and dev_btw_segs are lowered to 0.05 and min_baf to 0.1
+#'   to account for dampened log2 ratios at low tumor fractions.
+#' @param purity Numeric tumor purity or tumor fraction (0-1). When provided,
+#'   dev_tozero and dev_btw_segs are calculated automatically as
+#'   |log2(1 - purity/2)| / 3, matching the minimum detectable heterozygous
+#'   deletion at that purity. Overrides sample_type defaults.
+#'   Use the tumor fraction estimated by ichorCNA for liquid biopsy samples.
 #' @param dev_btw_segs Numeric max deviation between segment means for merging (default 0.16).
 #' @param dev_tozero Numeric deviation from zero threshold (default 0.16).
 #' @param dev_baf Numeric max BAF deviation between segments (default 0.1).
@@ -28,12 +37,14 @@
 #' @export
 resegment_sample <- function(data,
                              sample_id,
+                             sample_type = c("solid_tumor", "liquid_biopsy"),
+                             purity = NULL,
                              min_length = 100000,
                              max_dist_segm = 1000000,
                              percent_dist = 2,
-                             dev_btw_segs = 0.16,
-                             dev_tozero = 0.16,
-                             dev_baf = 0.1,
+                             dev_btw_segs = NULL,
+                             dev_tozero = NULL,
+                             dev_baf = NULL,
                              low_gain = 0.2,
                              normal_gain = round(log2(3 / 2), 2),
                              high_gain = round(log2(4 / 2), 2),
@@ -48,6 +59,26 @@ resegment_sample <- function(data,
                              min_baf = 0.2,
                              acrocentric = FALSE,
                              skip_resegmentation = FALSE) {
+
+  sample_type <- match.arg(sample_type)
+
+  # ── Resolve thresholds ────────────────────────────────────────────────────
+  if (!is.null(purity)) {
+    # Purity-aware: threshold = 1/3 of minimum detectable heterozygous deletion
+    purity <- min(max(purity, 0.01), 0.99)
+    auto_thr <- abs(log2(1 - purity / 2)) / 3
+    if (is.null(dev_tozero))   dev_tozero   <- auto_thr
+    if (is.null(dev_btw_segs)) dev_btw_segs <- auto_thr
+    if (is.null(dev_baf))      dev_baf      <- 0.1
+  } else if (sample_type == "liquid_biopsy") {
+    if (is.null(dev_tozero))   dev_tozero   <- 0.05
+    if (is.null(dev_btw_segs)) dev_btw_segs <- 0.05
+    if (is.null(dev_baf))      dev_baf      <- 0.1
+  } else {
+    if (is.null(dev_tozero))   dev_tozero   <- 0.16
+    if (is.null(dev_btw_segs)) dev_btw_segs <- 0.16
+    if (is.null(dev_baf))      dev_baf      <- 0.1
+  }
 
   tryCatch({
 
