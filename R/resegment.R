@@ -57,7 +57,7 @@ resegment_sample <- function(data,
                              focal_percent_medium = 0.15,
                              focal_percent_high = 0.3,
                              min_baf = 0.2,
-                             acrocentric = FALSE,
+                             acrocentric = TRUE,
                              skip_resegmentation = FALSE) {
 
   sample_type <- match.arg(sample_type)

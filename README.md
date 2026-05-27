@@ -28,55 +28,123 @@ BiocManager::install("BSgenome.Hsapiens.UCSC.hg38")
 ```r
 library(CNAppR)
 
-# Load a pre-segmented CNA table
-data <- read_cna_file(system.file("models", "LIHC_seg.txt", package = "CNAppR"))
-head(data)
-#>          ID chr loc.start  loc.end   seg.mean
-#> 1 TCGA-BC-A... 1    554268 11063088  0.0412
-#> 2 TCGA-BC-A... 1  11063088 12263592 -0.9871
+# Load a pre-segmented CNA table (your own file or the bundled example)
+data <- read_cna_file("path/to/your/segments.txt")
 
-# Re-segment and classify all samples
+# Example with the bundled LIHC dataset (354 samples)
+data <- read_cna_file(
+  system.file("models", "LIHC_354_cnvsegments_input_scores_nopurity.txt",
+              package = "CNAppR")
+)
+
+head(data)
+#>            ID chr loc.start   loc.end  seg.mean
+#> 1 TCGA-2Y-A9GS   1 205389460 205391959 -0.9772
+#> 2 TCGA-2Y-A9GS   1 205392408 247813706  0.1764
+```
+
+## Re-segmentation and scoring
+
+`resegment_sample()` processes one sample at a time. To run all samples in a dataset, loop over the sample IDs and collect results in a named list:
+
+```r
 sample_ids <- unique(data$ID)
-reseg_list <- lapply(sample_ids, function(id) resegment_sample(data, sample_id = id))
-names(reseg_list) <- sample_ids
+
+seg <- lapply(sample_ids, function(id) {
+  tryCatch(
+    resegment_sample(data, sample_id = id),
+    error = function(e) {
+      warning(id, ": ", conditionMessage(e))
+      NULL
+    }
+  )
+})
+names(seg) <- sample_ids
+seg <- Filter(Negate(is.null), seg)  # drop any samples that failed
 
 # Compute FCS, BCS and GCS scores
-scores <- calculate_cna_scores(reseg_list)
+scores <- calculate_cna_scores(seg)
 head(scores)
-#>            ID      FCS      BCS      GCS
-#> 1 TCGA-BC-A...  0.1823   4.0000  0.3241
-#> 2 TCGA-DD-A...  0.0541   2.0000  0.1042
+#>              FCS BCS    GCS
+#> TCGA-2Y-A9GS   2   3  0.82
+#> TCGA-DD-A1QA   0   1 -0.54
 ```
 
 Visualise the cohort-level CNA frequency:
 
 ```r
-plot_cn_frequency(reseg_list)
+plot_cn_frequency(seg)
 ```
+
+## Input format
+
+Minimum required columns for pre-segmented data:
+
+| Column | Type | Description |
+|---|---|---|
+| `ID` | character | Sample identifier |
+| `chr` | integer | Chromosome (1–22) |
+| `loc.start` | integer | Segment start (bp) |
+| `loc.end` | integer | Segment end (bp) |
+| `seg.mean` | numeric | Log2 copy number ratio |
+
+Optional columns preserved throughout the pipeline: `BAF`, `purity`.
 
 ## BAM pipeline
 
-For samples where you have aligned reads:
+For samples where you have aligned reads, use `read_bam_qc()` to count reads per bin and `run_bam_pipeline()` as a single-call convenience wrapper:
 
 ```r
 # WES — Illumina
-result <- run_bam_pipeline(
+seg_wes <- run_bam_pipeline(
   bam_path        = "tumor.bam",
+  sample_id       = "sample_01",
   sequencing_type = "illumina",
   targets_bed     = "capture_kit.bed",
   genome_build    = "hg19"
 )
 
 # WGS — Nanopore low-pass cfDNA
-result <- run_bam_pipeline(
+seg_wgs <- run_bam_pipeline(
   bam_path        = "cfDNA_nanopore.bam",
   sample_id       = "sample_01",
   sequencing_type = "nanopore",
-  genome_build    = "hg38"
+  bin_size        = 1000000L,
+  genome_build    = "hg19"
+)
+```
+
+Both functions return a data frame in the same format as `resegment_sample()`, ready to be passed directly to `calculate_cna_scores()`.
+
+### Panel of Normals (PoN)
+
+For cohort-level normalisation, build a PoN from a set of matched normal BAMs before running the tumour pipeline:
+
+```r
+pon <- build_pon(
+  bam_paths       = c("normal1.bam", "normal2.bam", "normal3.bam"),
+  genome_build    = "hg19",
+  experiment_type = "wes"
 )
 
-result$scores    # data.frame with FCS, BCS, GCS
-result$segments  # segmented copy number profile
+# Pass the PoN to read_bam_qc() or run_bam_pipeline()
+seg <- run_bam_pipeline("tumor.bam", sample_id = "sample_01",
+                         sequencing_type = "illumina",
+                         genome_build = "hg19", pon = pon)
+```
+
+### Combining WES and WGS samples
+
+Use `harmonize_segments()` to merge segment tables from different platforms or sequencing types into a single cohort table:
+
+```r
+seg_all <- harmonize_segments(
+  segments_list = c(seg_wes_list, seg_wgs_list),
+  source        = c(rep("wes", length(seg_wes_list)),
+                    rep("wgs", length(seg_wgs_list)))
+)
+
+scores <- calculate_cna_scores(split(seg_all, seg_all$ID))
 ```
 
 ## Pathway enrichment (optional)
@@ -87,7 +155,8 @@ Requires `fgsea` and `msigdbr`:
 BiocManager::install("fgsea")
 install.packages("msigdbr")
 
-annotated <- annotate_cna_genes(reseg_list[["sample_1"]], genome_build = "hg19")
+sample_id <- sample_ids[1]
+annotated <- annotate_cna_genes(seg[[sample_id]], genome_build = "hg19")
 ranks     <- build_gene_ranks(annotated, score_col = "seg.mean")
 
 gsea_res  <- run_gsea(ranks, collections = c("H", "C2"))
@@ -102,22 +171,12 @@ Requires `survival` and `survminer`:
 ```r
 install.packages(c("survival", "survminer"))
 
-res <- run_survival_analysis(scores, survival_data = surv_df, score_col = "GCS")
+res <- run_survival_analysis(scores, survival_data = surv_df, score_var = "GCS")
 res$plot    # Kaplan-Meier curve
 res$pvalue  # log-rank p-value
 ```
 
-## Input format
-
-Minimum required columns for pre-segmented data:
-
-| Column | Type | Description |
-|---|---|---|
-| `ID` | character | Sample identifier |
-| `chr` | integer | Chromosome (1–22) |
-| `loc.start` | integer | Segment start (bp) |
-| `loc.end` | integer | Segment end (bp) |
-| `seg.mean` | numeric | Log2 copy number ratio |
+`surv_df` must have columns `time` (numeric, months/days) and `event` (0/1), with row names matching the sample IDs in `scores`.
 
 ## CNA scores
 

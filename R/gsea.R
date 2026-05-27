@@ -141,9 +141,10 @@
 #'   the ranking metric. Default "seg.mean" (log2 copy-number ratio).
 #'   Other useful options: "score" (CNAppR weight score), or any numeric
 #'   column present in the data.
-#' @param cna_type Character vector of CNA types to include. Valid values:
-#'   "focal", "arm", "chromosomal". Default "focal". Set to
-#'   c("focal", "arm", "chromosomal") to include all types.
+#' @param cna_type Character vector of segment types to include in the
+#'   ranking. Valid values are "focal", "arm", and "chromosomal". Default
+#'   "focal" retains only focal CNAs (recommended: arm/chromosomal events
+#'   dilute GSEA signal). Set to NULL to skip filtering.
 #' @param agg_fun Function applied when a gene appears in more than one
 #'   segment. Receives a numeric vector and returns a scalar. Default:
 #'   keep the value with the highest absolute magnitude.
@@ -170,20 +171,18 @@ build_gene_ranks <- function(annotated_segs, score_col = "seg.mean",
   if (!"genes" %in% colnames(annotated_segs))
     stop("Column 'genes' not found. Run annotate_cna_genes() first.")
 
-  # Filter by CNA type if the type column is present
-  if (!is.null(cna_type) && "type" %in% colnames(annotated_segs)) {
+  if (!is.null(cna_type) && "classified" %in% colnames(annotated_segs)) {
     valid_types <- c("focal", "arm", "chromosomal")
     unknown <- setdiff(cna_type, valid_types)
     if (length(unknown) > 0L)
-      warning("Unknown cna_type value(s): ", paste(unknown, collapse = ", "),
-              ". Valid options: focal, arm, chromosomal.")
+      warning("Unknown cna_type value(s): ", paste(unknown, collapse = ", "))
     annotated_segs <- annotated_segs[
-      !is.na(annotated_segs$type) & annotated_segs$type %in% cna_type,
+      !is.na(annotated_segs$classified) & annotated_segs$classified %in% cna_type,
       , drop = FALSE
     ]
     if (nrow(annotated_segs) == 0L)
-      stop("No segments remain after filtering for cna_type = c('",
-           paste(cna_type, collapse = "', '"), "').")
+      stop("No segments remain after filtering for cna_type = ",
+           paste(cna_type, collapse = ", "), ". Check 'classified' column or set cna_type = NULL.")
   }
 
   has_genes <- !is.na(annotated_segs$genes) & nzchar(annotated_segs$genes)

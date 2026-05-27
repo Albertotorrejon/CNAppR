@@ -7,6 +7,7 @@
 build_gene_ranks(
   annotated_segs,
   score_col = "seg.mean",
+  cna_type = "focal",
   agg_fun = function(x) x[which.max(abs(x))]
 )
 }
@@ -19,6 +20,11 @@ the score column specified by score_col.}
 the ranking metric. Default "seg.mean" (log2 copy-number ratio).
 Other useful options: "score" (CNAppR weight score), or any numeric
 column present in the data.}
+
+\item{cna_type}{Character vector of segment types to include in the
+ranking. Valid values are "focal", "arm", and "chromosomal". Default
+"focal" retains only focal CNAs (recommended: arm/chromosomal events
+dilute GSEA signal). Set to NULL to skip filtering.}
 
 \item{agg_fun}{Function applied when a gene appears in more than one
 segment. Receives a numeric vector and returns a scalar. Default:

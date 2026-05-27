@@ -203,3 +203,194 @@ plot_cn_frequency <- function(resegmented_list,
 
   return(p)
 }
+
+
+#' Plot Genome-Wide CNA Profile (ASCAT-style)
+#'
+#' Generates a genome-wide CNA visualization showing per-bin log2 ratio dots
+#' colored by CNA call (NEUT=blue, HETD=green, GAIN/AMP/HLAMP=red) with
+#' segment mean horizontal lines superimposed. Replicates the style produced
+#' by ASCAT/ichorCNA genomeWide plots.
+#'
+#' @param bins_data Data frame from \code{read_bam_qc()}. Required columns:
+#'   \code{chr}, \code{loc.start}, \code{loc.end}, \code{log2_ratio}.
+#' @param seg_data Data frame of segments. Required columns: \code{chr}
+#'   (integer or character), \code{loc.start}, \code{loc.end}, \code{call}.
+#'   The Y value is taken from \code{seg.mean} if present, otherwise
+#'   \code{seg.median.logR}.
+#' @param sample_id Character sample label shown in the title.
+#' @param tumor_fraction Numeric tumor fraction (optional, shown in subtitle).
+#' @param ploidy Numeric ploidy (optional, shown in subtitle).
+#' @param ylim Numeric vector of length 2 for Y-axis limits (default
+#'   \code{c(-2, 2)}).
+#' @param call_colors Named character vector to override default call colors.
+#'   Recognized names: NEUT, HETD, HOMD, GAIN, AMP, HLAMP, HLAMP2, HLAMP3.
+#'
+#' @return A ggplot2 object.
+#'
+#' @examples
+#' \dontrun{
+#'   bins <- read_bam_qc("sample.bam", bin_size = 1000000,
+#'                        sequencing_type = "nanopore", experiment_type = "wgs")
+#'   segs <- read.table("sample.seg.txt", header = TRUE, sep = "\t")
+#'   # segs must have: chr, loc.start, loc.end, seg.mean (or seg.median.logR), call
+#'   p <- plot_genome_wide_cna(bins, segs, sample_id = "barcode66",
+#'                              tumor_fraction = 0.48, ploidy = 1.96)
+#'   print(p)
+#' }
+#'
+#' @export
+plot_genome_wide_cna <- function(bins_data,
+                                  seg_data,
+                                  sample_id      = "Sample",
+                                  tumor_fraction = NULL,
+                                  ploidy         = NULL,
+                                  ylim           = c(-2, 2),
+                                  call_colors    = NULL) {
+
+  # ── color scheme ────────────────────────────────────────────────
+  cna_colors <- c(
+    NEUT   = "steelblue",
+    HETD   = "forestgreen",
+    HOMD   = "darkgreen",
+    GAIN   = "red3",
+    AMP    = "red3",
+    HLAMP  = "red3",
+    HLAMP2 = "red3",
+    HLAMP3 = "red3"
+  )
+  if (!is.null(call_colors)) cna_colors[names(call_colors)] <- call_colors
+
+  # ── cytoband cumulative positions (autosomes only) ───────────────
+  l4 <- get_cytobands_data("level4")
+  l4 <- l4[order(l4$chr), ]
+  l4 <- l4[l4$chr <= 22, ]
+  l4$cum_start <- c(0, cumsum(l4$length[-nrow(l4)]))
+  offset_map   <- stats::setNames(l4$cum_start, as.character(l4$chr))
+
+  add_offset <- function(chr_int, pos) {
+    off <- offset_map[as.character(chr_int)]
+    pos + ifelse(is.na(off), 0, off)
+  }
+
+  norm_chr <- function(x) suppressWarnings(as.integer(gsub("^chr", "", as.character(x))))
+
+  # ── prepare bins ─────────────────────────────────────────────────
+  bins_data$chr_int <- norm_chr(bins_data$chr)
+  bins_data <- bins_data[!is.na(bins_data$chr_int) & bins_data$chr_int <= 22, ]
+  bins_data <- bins_data[!is.na(bins_data$log2_ratio), ]
+  bins_data$x_mid  <- add_offset(bins_data$chr_int,
+                                  (bins_data$loc.start + bins_data$loc.end) / 2)
+  # Clamp slightly outside ylim so clipped dots still appear at the boundary
+  bins_data$y_plot <- pmax(pmin(bins_data$log2_ratio, ylim[2] + 0.25), ylim[1] - 0.25)
+
+  # ── prepare segments ─────────────────────────────────────────────
+  seg_data$chr_int <- norm_chr(seg_data$chr)
+  seg_data <- seg_data[!is.na(seg_data$chr_int) & seg_data$chr_int <= 22, ]
+
+  seg_mean_col  <- if ("seg.mean" %in% colnames(seg_data)) "seg.mean" else "seg.median.logR"
+  seg_data$y        <- seg_data[[seg_mean_col]]
+  seg_data$x_start  <- add_offset(seg_data$chr_int, seg_data$loc.start)
+  seg_data$x_end    <- add_offset(seg_data$chr_int, seg_data$loc.end)
+
+  # Derive 'call' from CNAppR 'type' column when ASCAT 'call' is absent
+  if (!"call" %in% colnames(seg_data)) {
+    type_col <- if ("type" %in% colnames(seg_data)) seg_data$type else rep(NA_character_, nrow(seg_data))
+    seg_data$call <- "NEUT"
+    seg_data$call[!is.na(type_col) & type_col == "Gain" & seg_data$y < 1.0]  <- "GAIN"
+    seg_data$call[!is.na(type_col) & type_col == "Gain" & seg_data$y >= 1.0] <- "AMP"
+    seg_data$call[!is.na(type_col) & type_col == "Loss" & seg_data$y > -1.5] <- "HETD"
+    seg_data$call[!is.na(type_col) & type_col == "Loss" & seg_data$y <= -1.5] <- "HOMD"
+  }
+
+  # ── assign CNA call to each bin (by overlapping segment) ─────────
+  bins_data$call <- "NEUT"
+  for (c in unique(bins_data$chr_int)) {
+    idx_b <- which(bins_data$chr_int == c)
+    seg_c <- seg_data[seg_data$chr_int == c, , drop = FALSE]
+    if (nrow(seg_c) == 0L) next
+    for (i in seq_len(nrow(seg_c))) {
+      hit <- idx_b[bins_data$loc.start[idx_b] >= seg_c$loc.start[i] &
+                   bins_data$loc.end[idx_b]   <= seg_c$loc.end[i]]
+      if (length(hit) > 0L) bins_data$call[hit] <- seg_c$call[i]
+    }
+  }
+
+  # ── chromosome label colors (dominant call per chromosome) ────────
+  chr_mids      <- l4$cum_start + l4$length / 2
+  chr_label_col <- vapply(l4$chr, function(c) {
+    sc <- seg_data[seg_data$chr_int == c, , drop = FALSE]
+    if (nrow(sc) == 0L) return("steelblue")
+    sc$seg_len <- sc$x_end - sc$x_start
+    dom <- sc$call[which.max(sc$seg_len)]
+    if (is.na(dom) || dom == "NEUT")                              return("steelblue")
+    if (dom %in% c("GAIN", "AMP", "HLAMP", "HLAMP2", "HLAMP3")) return("red3")
+    if (dom %in% c("HETD", "HOMD"))                              return("forestgreen")
+    "steelblue"
+  }, character(1L))
+
+  # ── title ─────────────────────────────────────────────────────────
+  sub_parts <- character(0)
+  if (!is.null(tumor_fraction))
+    sub_parts <- c(sub_parts, paste0("Tumor Fraction: ", round(tumor_fraction, 4)))
+  if (!is.null(ploidy))
+    sub_parts <- c(sub_parts, paste0("Ploidy: ", round(ploidy, 2)))
+  title_str <- if (length(sub_parts) > 0L) {
+    paste0(sample_id, "\n", paste(sub_parts, collapse = ", "))
+  } else {
+    sample_id
+  }
+
+  x_max <- max(l4$cum_start + l4$length)
+
+  # ── build plot ───────────────────────────────────────────────────
+  p <- ggplot2::ggplot() +
+    ggplot2::geom_point(
+      data = bins_data,
+      ggplot2::aes(x = .data$x_mid, y = .data$y_plot, color = .data$call),
+      size = 0.4, alpha = 0.55, shape = 16
+    ) +
+    ggplot2::geom_segment(
+      data = seg_data,
+      ggplot2::aes(
+        x     = .data$x_start, xend = .data$x_end,
+        y     = .data$y,       yend = .data$y,
+        color = .data$call
+      ),
+      linewidth = 1.1, alpha = 0.9
+    ) +
+    ggplot2::geom_hline(yintercept = 0, color = "gray35", linewidth = 0.4) +
+    ggplot2::geom_vline(
+      xintercept = l4$cum_start,
+      linetype   = "dashed", color = "gray55", linewidth = 0.25
+    ) +
+    ggplot2::scale_color_manual(values = cna_colors, guide = "none") +
+    ggplot2::scale_x_continuous(
+      limits = c(0, x_max),
+      labels = NULL, breaks = NULL,
+      expand = c(0.005, 0)
+    ) +
+    ggplot2::coord_cartesian(ylim = ylim, clip = "off") +
+    ggplot2::labs(title = title_str, x = NULL, y = "Copy Number (log2 ratio)") +
+    ggplot2::theme_classic() +
+    ggplot2::theme(
+      plot.title         = ggplot2::element_text(hjust = 0.5, size = 9),
+      axis.text.x        = ggplot2::element_blank(),
+      axis.ticks.x       = ggplot2::element_blank(),
+      axis.line.x        = ggplot2::element_blank(),
+      axis.text.y        = ggplot2::element_text(size = 8),
+      panel.grid.major.y = ggplot2::element_line(color = "gray92", linewidth = 0.25),
+      panel.grid.minor.y = ggplot2::element_blank(),
+      plot.margin        = ggplot2::margin(t = 5, r = 5, b = 22, l = 5)
+    ) +
+    ggplot2::annotate(
+      "text",
+      x     = chr_mids,
+      y     = ylim[1] - (ylim[2] - ylim[1]) * 0.12,
+      label = as.character(l4$chr),
+      color = chr_label_col,
+      size  = 2.8, hjust = 0.5
+    )
+
+  p
+}
