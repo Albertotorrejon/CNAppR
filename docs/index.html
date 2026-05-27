@@ -619,18 +619,29 @@ result &lt;- run_bam_pipeline(<span class="text-secondary font-medium">"tumor.ba
 <span class="text-outline italic"># Required columns:</span>
 <span class="text-outline italic">#   ID  chr  loc.start  loc.end  seg.mean</span>
 
-sample_ids &lt;- unique(data$ID)`,
+sample_ids &lt;- unique(as.character(data$ID))`,
 
-        'resegment_sample': `<span class="text-outline italic"># Re-segment and classify a single sample</span>
+        'resegment_sample': `<span class="text-outline italic"># Single sample</span>
 <span class="text-clinical-blue font-bold">seg</span> &lt;- resegment_sample(
   data,
   sample_id     = <span class="text-secondary font-medium">"TCGA-XX-0001"</span>,
-  dev_btw_segs  = 0.16,   <span class="text-outline italic"># merge tolerance</span>
-  dev_tozero    = 0.16,   <span class="text-outline italic"># neutral threshold</span>
-  min_length    = 100000, <span class="text-outline italic"># min segment bp</span>
+  dev_btw_segs  = 0.16,
+  dev_tozero    = 0.16,
+  min_length    = 100000,
   chrom_percent = 0.90,
   arm_percent   = 0.50
-)`,
+)
+
+<span class="text-outline italic"># All samples at once</span>
+sample_ids &lt;- unique(as.character(data$ID))
+reseg_list &lt;- lapply(sample_ids, function(id) {
+  tryCatch(
+    resegment_sample(data, sample_id = id),
+    error = function(e) { warning(id, <span class="text-secondary font-medium">": "</span>, e$message); NULL }
+  )
+})
+names(reseg_list) &lt;- sample_ids
+reseg_list &lt;- Filter(Negate(is.null), reseg_list)`,
 
         'annotate_cna_genes': `<span class="text-outline italic"># Annotate CNA segments with overlapping genes</span>
 <span class="text-clinical-blue font-bold">annotated</span> &lt;- annotate_cna_genes(

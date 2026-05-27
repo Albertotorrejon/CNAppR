@@ -3,7 +3,7 @@
 #' Computes FCS (Focal Copy Number Score), BCS (Broad Copy Number Score),
 #' and GCS (Global Copy Number Score) for samples.
 #'
-#' @param resegmented_list List of re-segmented data frames, one per sample (output from resegment_sample()).
+#' @param reseg_list Named list of re-segmented data frames, one per sample (output from resegment_sample()).
 #' @param sample_names Character vector of sample IDs (optional; inferred from names if list is named).
 #'
 #' @return Data frame with columns: FCS, BCS, GCS and row names as sample_names.
@@ -18,42 +18,43 @@
 #'
 #' @examples
 #' \dontrun{
-#'   reseg_list <- lapply(c("sample_1", "sample_2"), function(id) {
+#'   sample_ids <- unique(as.character(data$ID))
+#'   reseg_list <- lapply(sample_ids, function(id) {
 #'     resegment_sample(data, sample_id = id)
 #'   })
-#'   names(reseg_list) <- c("sample_1", "sample_2")
+#'   names(reseg_list) <- sample_ids
 #'
 #'   scores <- calculate_cna_scores(reseg_list)
 #'   head(scores)
 #' }
 #'
 #' @export
-calculate_cna_scores <- function(resegmented_list, sample_names = NULL) {
-  if (is.data.frame(resegmented_list)) {
-    resegmented_list <- list(resegmented_list)
+calculate_cna_scores <- function(reseg_list, sample_names = NULL) {
+  if (is.data.frame(reseg_list)) {
+    reseg_list <- list(reseg_list)
     if (!is.null(sample_names) && length(sample_names) == 1) {
-      names(resegmented_list) <- sample_names
+      names(reseg_list) <- sample_names
     }
   }
 
   if (is.null(sample_names)) {
-    sample_names <- names(resegmented_list)
+    sample_names <- names(reseg_list)
     if (is.null(sample_names)) {
-      sample_names <- paste0("sample_", seq_along(resegmented_list))
+      sample_names <- paste0("sample_", seq_along(reseg_list))
     }
   }
 
-  if (length(sample_names) != length(resegmented_list)) {
-    stop("Length of sample_names must match length of resegmented_list.")
+  if (length(sample_names) != length(reseg_list)) {
+    stop("Length of sample_names must match length of reseg_list.")
   }
 
   # Initialize score vectors
-  fcs <- numeric(length(resegmented_list))
-  bcs <- numeric(length(resegmented_list))
+  fcs <- numeric(length(reseg_list))
+  bcs <- numeric(length(reseg_list))
 
   # Extract counts from each resegmented sample
-  for (i in seq_along(resegmented_list)) {
-    reseg <- resegmented_list[[i]]
+  for (i in seq_along(reseg_list)) {
+    reseg <- reseg_list[[i]]
 
     # Count alterations by type
     n_focal       <- sum(reseg$score[reseg$classified == "focal"], na.rm = TRUE)
