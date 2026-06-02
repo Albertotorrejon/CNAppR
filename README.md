@@ -33,7 +33,8 @@ data <- read_cna_file("path/to/your/segments.txt")
 
 # Example with the bundled LIHC dataset (354 samples)
 data <- read_cna_file(
-  system.file("models", "LIHC_354_cnvsegments_input_scores_nopurity.txt",
+  system.file("models", "datos TFM",
+              "LIHC_354_cnvsegments_input_scores_nopurity.txt",
               package = "CNAppR")
 )
 
