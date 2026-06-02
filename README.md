@@ -90,7 +90,11 @@ plot_genome_wide_cna(bins_data, seg_data, sample_id = "sample_01",
 plot_segmentation(original_data, resegmented_data, sample_id = "sample_01")
 ```
 
-![Copy Number Frequency — TCGA-LIHC (n = 354), multiple threshold settings](docs/img/Plots_gifts.gif)
+![Copy Number Frequency — TCGA-LIHC (n = 354)](docs/img/figure3_paper_cnappR_page-0001.jpg)
+
+![GSEA — top 20 pathways by NES](docs/img/gsea_top_sample.png)
+
+![Genome-wide CNA profiles — Nanopore WGS](docs/img/nanopore_profiles.png)
 
 ## Input format
 
