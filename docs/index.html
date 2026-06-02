@@ -677,11 +677,22 @@ plot_genome_wide_cna(
   ploidy         = result$ploidy
 )`,
 
-        'plot_cn_frequency': `<span class="text-outline italic"># Genome-wide CNA frequency across a cohort</span>
+        'plot_cn_frequency': `<span class="text-outline italic"># Re-segment all samples first</span>
+<span class="text-clinical-blue font-bold">sample_ids</span> &lt;- unique(data$ID)
+<span class="text-clinical-blue font-bold">reseg_list</span> &lt;- lapply(sample_ids, function(id) {
+  tryCatch(resegment_sample(data, id), error = function(e) NULL)
+})
+names(reseg_list) &lt;- sample_ids
+reseg_list &lt;- Filter(Negate(is.null), reseg_list)
+
+<span class="text-outline italic"># Cohort-level frequency plot (default thresholds)</span>
 plot_cn_frequency(reseg_list)
 
-<span class="text-outline italic"># Gains shown in red above the axis</span>
-<span class="text-outline italic"># Losses shown in blue below the axis</span>`,
+<span class="text-outline italic"># Custom gain/loss thresholds</span>
+plot_cn_frequency(reseg_list,
+  gain_threshold = <span class="text-secondary font-medium">0.3</span>,
+  loss_threshold = <span class="text-secondary font-medium">-0.3</span>
+)`,
 
         'test_clinical_association': `<span class="text-outline italic"># Associate CNA scores with clinical variables</span>
 <span class="text-clinical-blue font-bold">results</span> &lt;- test_clinical_association(
