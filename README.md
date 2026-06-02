@@ -77,6 +77,8 @@ Visualise the cohort-level CNA frequency:
 plot_cn_frequency(seg)
 ```
 
+![Copy Number Frequency — TCGA-LIHC (n = 354)](docs/img/Plots_gifts.gif)
+
 ## Input format
 
 Minimum required columns for pre-segmented data:

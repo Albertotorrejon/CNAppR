@@ -85,14 +85,14 @@ plot_segmentation <- function(original_data,
     ggplot2::geom_segment(
       data = original_data,
       ggplot2::aes(x = .data$adj_start, xend = .data$adj_end, y = .data$seg.mean, yend = .data$seg.mean),
-      color = "black", size = 0.7, alpha = 0.6
+      color = "black", linewidth = 0.7, alpha = 0.6
     ) +
     ggplot2::geom_segment(
       data = resegmented_data,
       ggplot2::aes(x = .data$adj_start, xend = .data$adj_end, y = .data$seg.mean, yend = .data$seg.mean),
-      color = "forestgreen", size = 1.0, alpha = 0.8
+      color = "forestgreen", linewidth = 1.0, alpha = 0.8
     ) +
-    ggplot2::geom_hline(yintercept = 0, linetype = "solid", color = "gray30", size = 0.5) +
+    ggplot2::geom_hline(yintercept = 0, linetype = "solid", color = "gray30", linewidth = 0.5) +
     ggplot2::facet_wrap(~factor(1), ncol = 1) +
     ggplot2::labs(
       title = paste("Segmentation Comparison:", sample_id),
@@ -100,7 +100,7 @@ plot_segmentation <- function(original_data,
     ) +
     ggplot2::theme_minimal() +
     ggplot2::theme(
-      panel.grid.major.y = ggplot2::element_line(color = "lightgray", size = 0.3),
+      panel.grid.major.y = ggplot2::element_line(color = "lightgray", linewidth = 0.3),
       axis.text.x = ggplot2::element_blank()
     )
 
@@ -115,7 +115,7 @@ plot_segmentation <- function(original_data,
     p <- p +
       ggplot2::geom_hline(
         yintercept = threshold_values,
-        linetype = "dashed", color = "orange", size = 0.4, alpha = 0.7
+        linetype = "dashed", color = "orange", linewidth = 0.4, alpha = 0.7
       )
   }
 
@@ -398,6 +398,119 @@ plot_genome_wide_cna <- function(bins_data,
       label = as.character(l4$chr),
       color = chr_label_col,
       size  = 2.8, hjust = 0.5
+    )
+
+  p
+}
+
+
+#' Plot Copy Number Frequency Profile (Genomic Position on X)
+#'
+#' Creates the classic copy-number frequency bar plot: gain frequency shown as
+#' positive bars (red) and loss frequency as negative bars (blue), with
+#' genomic position on the X axis. Accepts the output of
+#' \code{compute_region_frequencies()}.
+#'
+#' @param freq_df Data frame output of \code{compute_region_frequencies()}.
+#'   Required columns: \code{chr}, \code{start}, \code{end},
+#'   \code{gain_freq}, \code{loss_freq} (all as proportions 0–1).
+#' @param title Character plot title.
+#' @param gain_color Character hex/name color for gain bars (default red).
+#' @param loss_color Character hex/name color for loss bars (default blue).
+#' @param alpha Numeric transparency for bars (default 0.85).
+#'
+#' @return A ggplot2 object.
+#'
+#' @details
+#' The Y axis shows percentage of samples (0–100\%). Chromosome boundaries
+#' are drawn as dashed vertical lines; labels are placed below the axis.
+#' Works with any reference granularity: arm-level (44 bars), cytoband
+#' (~800 bars), or WES targets (246k tiny bars, rendering as a smooth curve).
+#'
+#' @examples
+#' \dontrun{
+#'   arm_ref <- "inst/aux_files/segmented_files_hg19/autosomes_hg19_by_arms.txt"
+#'   freq    <- compute_region_frequencies(lihc_list, arm_ref)
+#'   plot_frequency_profile(freq, title = "TCGA-LIHC  |  n = 354")
+#' }
+#'
+#' @export
+plot_frequency_profile <- function(freq_df,
+                                   title      = "Copy Number Frequency Profile",
+                                   gain_color = "#d73027",
+                                   loss_color = "#4575b4",
+                                   alpha      = 0.85) {
+
+  # ── normalise chr column ─────────────────────────────────────────────
+  freq_df$chr_int <- suppressWarnings(
+    as.integer(gsub("^chr", "", as.character(freq_df$chr)))
+  )
+  freq_df <- freq_df[!is.na(freq_df$chr_int) & freq_df$chr_int <= 22L, ]
+  freq_df <- freq_df[order(freq_df$chr_int, freq_df$start), ]
+  if (nrow(freq_df) == 0L) stop("No autosomal regions found in freq_df.")
+
+  # ── cumulative genomic offsets ───────────────────────────────────────
+  chrs      <- sort(unique(freq_df$chr_int))
+  chr_max   <- vapply(chrs, function(c) max(freq_df$end[freq_df$chr_int == c]),
+                      numeric(1L))
+  cum_off   <- c(0, cumsum(chr_max[-length(chr_max)]))
+  names(cum_off) <- as.character(chrs)
+
+  freq_df$x_start <- freq_df$start + cum_off[as.character(freq_df$chr_int)]
+  freq_df$x_end   <- freq_df$end   + cum_off[as.character(freq_df$chr_int)]
+
+  # Boundaries and midpoints for chromosome labels
+  chr_bounds <- vapply(chrs, function(c) max(freq_df$x_end[freq_df$chr_int == c]),
+                       numeric(1L))
+  chr_mids   <- vapply(chrs, function(c)
+    mean(range(freq_df$x_start[freq_df$chr_int == c],
+               freq_df$x_end[freq_df$chr_int == c])),
+    numeric(1L))
+
+  x_max <- max(chr_bounds)
+
+  # ── build plot ───────────────────────────────────────────────────────
+  p <- ggplot2::ggplot(freq_df) +
+    ggplot2::geom_rect(
+      ggplot2::aes(xmin = .data$x_start, xmax = .data$x_end,
+                   ymin = 0, ymax = .data$gain_freq * 100),
+      fill = gain_color, alpha = alpha
+    ) +
+    ggplot2::geom_rect(
+      ggplot2::aes(xmin = .data$x_start, xmax = .data$x_end,
+                   ymin = -.data$loss_freq * 100, ymax = 0),
+      fill = loss_color, alpha = alpha
+    ) +
+    ggplot2::geom_hline(yintercept = 0, color = "black", linewidth = 0.4) +
+    ggplot2::geom_vline(
+      xintercept = c(0, chr_bounds),
+      color = "gray65", linewidth = 0.25, linetype = "dashed"
+    ) +
+    ggplot2::annotate(
+      "text",
+      x     = chr_mids,
+      y     = -108,
+      label = as.character(chrs),
+      size  = 2.6, hjust = 0.5, color = "gray25"
+    ) +
+    ggplot2::scale_x_continuous(
+      limits = c(0, x_max),
+      labels = NULL, breaks = NULL, expand = c(0.005, 0)
+    ) +
+    ggplot2::scale_y_continuous(
+      labels = function(x) paste0(abs(x), "%"),
+      limits = c(-115, 105),
+      breaks = c(-100, -75, -50, -25, 0, 25, 50, 75, 100)
+    ) +
+    ggplot2::labs(title = title, x = NULL, y = "Samples (%)") +
+    ggplot2::theme_classic() +
+    ggplot2::theme(
+      plot.title         = ggplot2::element_text(hjust = 0.5, size = 11),
+      axis.text.x        = ggplot2::element_blank(),
+      axis.ticks.x       = ggplot2::element_blank(),
+      axis.line.x        = ggplot2::element_blank(),
+      panel.grid.major.y = ggplot2::element_line(color = "gray92", linewidth = 0.25),
+      plot.margin        = ggplot2::margin(t = 5, r = 5, b = 22, l = 5)
     )
 
   p
