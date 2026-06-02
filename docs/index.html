@@ -262,25 +262,6 @@
 </div></div>
 </div>
 </section>
-<!-- Gallery Section -->
-<section class="px-margin-page py-24 bg-surface-container-lowest">
-  <div class="max-w-5xl mx-auto">
-    <div class="text-center mb-12">
-      <h2 class="text-headline-lg font-headline-lg text-on-background mb-4">Example Output</h2>
-      <p class="text-body-lg text-on-surface-variant">Copy number frequency profiles across 354 TCGA-LIHC samples at different threshold settings</p>
-      <div class="w-24 h-1 bg-primary mx-auto rounded-full mt-4"></div>
-    </div>
-    <div class="rounded-2xl overflow-hidden shadow-lg border border-outline-variant">
-      <img src="img/Plots_gifts.gif"
-           alt="Copy Number Frequency — TCGA-LIHC (n = 354)"
-           class="w-full h-auto">
-    </div>
-    <p class="text-center text-body-sm text-on-surface-variant mt-4">
-      CNAppR · TCGA-LIHC · n = 354 samples · hg19 · <code>compute_region_frequencies()</code> + <code>plot_frequency_profile()</code>
-    </p>
-  </div>
-</section>
-
 <!-- Video Section -->
 <section id="usage" class="px-margin-page py-24 bg-surface">
 <div class="max-w-7xl mx-auto">
@@ -548,26 +529,43 @@
 </div>
 </div>
 </section>
-<!-- Citation Section -->
+<!-- Citation + Example Output Section -->
 <section class="px-margin-page py-24">
-<div class="max-w-4xl mx-auto">
-<div class="relative bg-white border border-outline-variant p-10 rounded-[32px] overflow-hidden">
-<div class="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-bl-full"></div>
-<span class="material-symbols-outlined text-primary text-[48px] mb-6" style="font-variation-settings: 'FILL' 1;">format_quote</span>
-<blockquote class="text-headline-md font-headline-md text-on-background mb-8 italic text-[20px] leading-relaxed">
-                    "Franch-Exposito S, Bassaganyas L, Vila-Casadesus M, Hernandez-Illan E, Esteban-Fabro R, Diaz-Gay M, Lozano JJ, Castells A, Llovet JM, Castellvi-Bel S, Camps J. CNApp, a tool for the quantification of copy number alterations and integrative analysis revealing clinical implications. eLife 2020;9:e50267."
-                </blockquote>
-<a href="https://elifesciences.org/articles/50267" target="_blank" class="flex items-center gap-6 hover:opacity-80 transition-opacity">
-<div class="flex-shrink-0 w-16 h-16 bg-surface-container flex items-center justify-center rounded-lg">
-<span class="text-label-mono font-label-mono text-secondary font-bold">eLife</span>
-</div>
-<div>
-<p class="text-body-md font-body-md font-bold text-on-surface">eLife Publication, 2020 ↗</p>
-<p class="text-body-sm font-body-sm text-on-surface-variant">Franch-Expósito S, et al. doi: 10.7554/eLife.50267</p>
-</div>
-</a>
-</div>
-</div>
+  <div class="max-w-7xl mx-auto flex flex-col lg:flex-row items-start gap-12">
+
+    <!-- Citation card -->
+    <div class="lg:w-2/5 flex-shrink-0">
+      <div class="relative bg-white border border-outline-variant p-10 rounded-[32px] overflow-hidden">
+        <div class="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-bl-full"></div>
+        <span class="material-symbols-outlined text-primary text-[48px] mb-6" style="font-variation-settings: 'FILL' 1;">format_quote</span>
+        <blockquote class="text-headline-md font-headline-md text-on-background mb-8 italic text-[20px] leading-relaxed">
+          "Franch-Exposito S, Bassaganyas L, Vila-Casadesus M, Hernandez-Illan E, Esteban-Fabro R, Diaz-Gay M, Lozano JJ, Castells A, Llovet JM, Castellvi-Bel S, Camps J. CNApp, a tool for the quantification of copy number alterations and integrative analysis revealing clinical implications. eLife 2020;9:e50267."
+        </blockquote>
+        <a href="https://elifesciences.org/articles/50267" target="_blank" class="flex items-center gap-6 hover:opacity-80 transition-opacity">
+          <div class="flex-shrink-0 w-16 h-16 bg-surface-container flex items-center justify-center rounded-lg">
+            <span class="text-label-mono font-label-mono text-secondary font-bold">eLife</span>
+          </div>
+          <div>
+            <p class="text-body-md font-body-md font-bold text-on-surface">eLife Publication, 2020 ↗</p>
+            <p class="text-body-sm font-body-sm text-on-surface-variant">Franch-Expósito S, et al. doi: 10.7554/eLife.50267</p>
+          </div>
+        </a>
+      </div>
+    </div>
+
+    <!-- Example plots -->
+    <div class="lg:w-3/5 flex flex-col gap-3">
+      <h2 class="text-headline-md font-bold text-on-background">Example Output</h2>
+      <p class="text-body-sm text-on-surface-variant mb-2">
+        Copy number frequency profiles · TCGA-LIHC · n = 354 · hg19 ·
+        <code>compute_region_frequencies()</code> + <code>plot_frequency_profile()</code>
+      </p>
+      <img src="img/Plots_gifts.gif"
+           alt="Copy Number Frequency — TCGA-LIHC (n = 354)"
+           class="h-auto">
+    </div>
+
+  </div>
 </section>
 </main>
 <!-- Footer -->
