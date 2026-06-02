@@ -102,53 +102,61 @@ compute_region_frequencies <- function(resegmented_list,
   gain_counts <- integer(nr)
   loss_counts <- integer(nr)
 
+  # Pre-group reference regions by chromosome (done once, outside sample loop)
+  ref_by_chr <- split(seq_len(nr), reference_file$chr)
+
   # ── per-sample loop ──────────────────────────────────────────────────────────
   for (si in seq_len(n)) {
     seg <- resegmented_list[[si]]
     if (is.null(seg) || nrow(seg) == 0L) next
 
-    # Add chr column with "chr" prefix (input is integer from resegment_sample)
     seg$chr_c <- paste0("chr", as.character(seg$chr))
-
-    # Remove degenerate segments
     seg <- seg[!is.na(seg$seg.mean) & seg$loc.end > seg$loc.start, , drop = FALSE]
     if (nrow(seg) == 0L) next
 
-    # ── per-region weighted mean ─────────────────────────────────────────────
-    for (ri in seq_len(nr)) {
-      rch    <- reference_file$chr[ri]
-      rstart <- reference_file$start[ri]
-      rend   <- reference_file$end[ri]
-      rlen   <- rend - rstart
-      if (rlen <= 0) next
+    # Pre-group segments by chromosome
+    seg_by_chr <- split(seq_len(nrow(seg)), seg$chr_c)
 
-      s <- seg[seg$chr_c == rch, , drop = FALSE]
-      if (nrow(s) == 0L) next
+    # ── per-chromosome vectorised overlap ────────────────────────────────────
+    for (ch in intersect(names(ref_by_chr), names(seg_by_chr))) {
+      ri_idx <- ref_by_chr[[ch]]
+      si_idx <- seg_by_chr[[ch]]
 
-      ov_idx <- which(s$loc.start <= rend & s$loc.end >= rstart)
-      if (length(ov_idx) == 0L) next
+      r_start <- reference_file$start[ri_idx]
+      r_end   <- reference_file$end[ri_idx]
+      r_len   <- r_end - r_start
+      valid_r <- r_len > 0
+      if (!any(valid_r)) next
 
-      ss <- s$loc.start[ov_idx]
-      se <- s$loc.end[ov_idx]
-      sv <- s$seg.mean[ov_idx]
+      ri_v    <- ri_idx[valid_r]
+      r_start <- r_start[valid_r]
+      r_end   <- r_end[valid_r]
+      r_len   <- r_len[valid_r]
 
-      # Overlap length within the reference region
-      ov_len <- pmax(pmin(se, rend) - pmax(ss, rstart), 0)
+      s_start <- seg$loc.start[si_idx]
+      s_end   <- seg$loc.end[si_idx]
+      s_mean  <- seg$seg.mean[si_idx]
 
-      # Weight = overlap_length / region_length, capped at 1
-      wt     <- pmin(ov_len / rlen, 1)
-      wt_sum <- sum(wt)
+      # Overlap matrix: m regions × k segments (all in C via outer)
+      ov_len <- pmax(
+        outer(r_end, s_end, pmin) - outer(r_start, s_start, pmax),
+        0
+      )
 
-      if (wt_sum == 0) next
+      # Weight = overlap / region_length (row-wise divide), capped at 1
+      wt     <- pmin(sweep(ov_len, 1L, r_len, "/"), 1)
+      wt_sum <- rowSums(wt)
 
-      wmean <- sum(sv * wt) / wt_sum
+      # Weighted mean per region (0 where no overlap)
+      wmean        <- numeric(length(ri_v))
+      has_overlap  <- wt_sum > 0
+      wmean[has_overlap] <- rowSums(wt * s_mean)[has_overlap] /
+                            wt_sum[has_overlap]
 
-      if (!is.na(wmean)) {
-        if (wmean >= gain_thr)
-          gain_counts[ri] <- gain_counts[ri] + 1L
-        else if (wmean <= loss_thr)
-          loss_counts[ri] <- loss_counts[ri] + 1L
-      }
+      gain_counts[ri_v] <- gain_counts[ri_v] +
+        as.integer(!is.na(wmean) & wmean >= gain_thr)
+      loss_counts[ri_v] <- loss_counts[ri_v] +
+        as.integer(!is.na(wmean) & wmean <= loss_thr)
     }
   }
 
