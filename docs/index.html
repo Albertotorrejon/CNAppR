@@ -664,6 +664,19 @@ plot_segmentation(
   sample_id        = <span class="text-secondary font-medium">"sample_1"</span>
 )`,
 
+        'plot_genome_wide_cna': `<span class="text-outline italic"># ASCAT-style genome-wide CNA profile from BAM bins</span>
+<span class="text-clinical-blue font-bold">result</span> &lt;- run_bam_pipeline(<span class="text-secondary font-medium">"sample.bam"</span>,
+                              sample_id = <span class="text-secondary font-medium">"S01"</span>,
+                              genome_build = <span class="text-secondary font-medium">"hg38"</span>)
+
+plot_genome_wide_cna(
+  bins_data      = result$metadata$qc_data,
+  seg_data       = as.data.frame(result),
+  sample_id      = <span class="text-secondary font-medium">"S01"</span>,
+  tumor_fraction = result$tumor_fraction,
+  ploidy         = result$ploidy
+)`,
+
         'plot_cn_frequency': `<span class="text-outline italic"># Genome-wide CNA frequency across a cohort</span>
 plot_cn_frequency(reseg_list)
 
@@ -821,6 +834,17 @@ km$pvalue  <span class="text-outline italic"># log-rank p-value</span>`,
                 { name: 'original_data', desc: 'Raw segment data.frame (before resegment_sample)' },
                 { name: 'resegmented_data', desc: 'Output from resegment_sample()' },
                 { name: 'sample_id', desc: 'Sample ID shown in the plot title' },
+            ],
+            returns: 'ggplot2 object'
+        },
+        'plot_genome_wide_cna': {
+            long: 'ASCAT-style genome-wide CNA profile: per-bin log2 ratio dots coloured by CNA call (NEUT, HETD, GAIN, AMP) with segment mean lines superimposed. Supports tumour fraction and ploidy annotation in the subtitle. Output is compatible with both CBS and IchorCNA segments.',
+            params: [
+                { name: 'bins_data', desc: 'data.frame from read_bam_qc() with per-bin log2 ratios' },
+                { name: 'seg_data', desc: 'Segment data.frame with chr, loc.start, loc.end, seg.mean, call' },
+                { name: 'sample_id', desc: 'Sample label shown in the plot title' },
+                { name: 'tumor_fraction', desc: 'Numeric tumour fraction (optional, from IchorCNA)' },
+                { name: 'ploidy', desc: 'Numeric ploidy estimate (optional, from IchorCNA)' },
             ],
             returns: 'ggplot2 object'
         },
