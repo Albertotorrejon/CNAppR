@@ -196,8 +196,8 @@ prepare_clinical_variables <- function(data, exclude_cols = c("BAF", "purity"), 
   seq_palettes <- rownames(RColorBrewer::brewer.pal.info[
     which(RColorBrewer::brewer.pal.info[, "category"] == "seq"), ])
 
-  color_palettes <- c(div_palettes, seq_palettes)
-  color_assignment <- color_palettes[seq_len(length(variables_names))]
+  color_palettes   <- c(div_palettes, seq_palettes)
+  color_assignment <- rep_len(color_palettes, length(variables_names))
 
   variables_info <- data.frame(
     name_var = variables_names,
@@ -285,9 +285,10 @@ prepare_annotation_data <- function(data, annot_filepath, sep = "\t",
 #'
 #' Returns reference cytoband data (level 3 or level 4) for a given genome build.
 #'
-#' @param level Character "level3" or "level4" (default "level3").
+#' @param level Character "level3" (p/q arm definitions) or "level4"
+#'   (full chromosome lengths). Default "level3".
 #'
-#' @return Data frame with cytoband information (chr, start, end, label, length).
+#' @return Data frame with columns: chr, start, end, label, length.
 #'
 #' @export
 get_cytobands_data <- function(level = "level3") {

@@ -10,6 +10,71 @@
 # Nanopore (low-pass WGS): single long reads, larger bins (~1 Mb)
 
 
+# ─── CNAppR_segments S3 class ────────────────────────────────────────────────
+
+#' Constructor for CNAppR_segments
+#' @keywords internal
+new_cnapp_segments <- function(segments,
+                                method,
+                                coverage,
+                                tumor_fraction = NA_real_,
+                                ploidy         = NA_real_,
+                                metadata       = list()) {
+  structure(
+    list(
+      segments       = segments,
+      method         = method,
+      coverage       = coverage,
+      tumor_fraction = tumor_fraction,
+      ploidy         = ploidy,
+      metadata       = metadata
+    ),
+    class = "CNAppR_segments"
+  )
+}
+
+#' Print method for CNAppR_segments
+#' @export
+print.CNAppR_segments <- function(x, ...) {
+  cat("CNAppR_segments\n")
+  cat("  Method  :", x$method, "\n")
+  cat("  Coverage:", round(x$coverage, 2), "x\n")
+  if (!is.na(x$tumor_fraction))
+    cat("  Tumor fraction:", round(x$tumor_fraction, 4), "\n")
+  if (!is.na(x$ploidy))
+    cat("  Ploidy  :", round(x$ploidy, 4), "\n")
+  if (is.data.frame(x$segments))
+    cat("  Segments:", nrow(x$segments), "\n")
+  invisible(x)
+}
+
+#' Coerce CNAppR_segments to data.frame
+#'
+#' Returns the segment table, making CNAppR_segments directly usable with all
+#' existing downstream functions (calculate_cna_scores, plot_genome_wide_cna, etc.).
+#'
+#' @param x A CNAppR_segments object.
+#' @param ... Ignored.
+#' @export
+as.data.frame.CNAppR_segments <- function(x, ...) x$segments
+
+#' Estimate mean sequencing coverage from read_bam_qc output
+#' @param qc_data Data frame from read_bam_qc().
+#' @param read_length Integer assumed read length in bp (default 150).
+#' @return Numeric estimated mean coverage (x-fold).
+#' @keywords internal
+.estimate_coverage <- function(qc_data, read_length = 150L) {
+  valid <- !is.na(qc_data$reads) & qc_data$reads > 0
+  if (!any(valid)) return(0)
+  bin_size <- stats::median(
+    qc_data$loc.end[valid] - qc_data$loc.start[valid],
+    na.rm = TRUE
+  )
+  if (is.na(bin_size) || bin_size <= 0) return(0)
+  mean(qc_data$reads[valid]) * as.integer(read_length) / bin_size
+}
+
+
 # ─── internal helpers ────────────────────────────────────────────────────────
 
 .check_pkg <- function(pkg) {
@@ -252,7 +317,7 @@
 # Strategy: try valr::bed_makewindows() first (BED-standard, no edge-case
 # arithmetic); fall back to the original loop implementation if valr is
 # unavailable or raises an error.
-.split_target_bins <- function(targets_gr, bin_size = 267L) {
+.split_target_bins <- function(targets_gr, bin_size = 1000L) {
   bin_size <- as.integer(bin_size)
 
   # ── valr path ──────────────────────────────────────────────────────────────
@@ -543,8 +608,10 @@
 #'   more data points, improving GC correction accuracy.
 #'   NULL (default) means automatic: TRUE for WES, FALSE for WGS.
 #' @param target_bin_size Integer target sub-bin size in bp when
-#'   split_targets = TRUE (default 267, the CNVkit default).  Exons smaller
-#'   than this value are kept as single bins.
+#'   split_targets = TRUE (default 1000 bp).  Exons smaller than this value
+#'   are kept as single bins. The original CNVkit default (267 bp) creates
+#'   exon-level bins and causes CBS over-segmentation (~2500 segments) in WES;
+#'   1000 bp gives a more balanced segmentation comparable to CNVkit's output.
 #' @param pon Optional Panel of Normals object produced by build_pon(). When
 #'   provided, the per-bin PoN median log2 is subtracted from the tumour log2
 #'   ratios after GC correction, removing systematic protocol-specific
@@ -616,7 +683,7 @@ read_bam_qc <- function(bam_path, bin_size = NULL, genome_build = "hg19",
                          use_antitarget = FALSE,
                          antitarget_bin_size = 100000L,
                          split_targets = NULL,
-                         target_bin_size = 267L,
+                         target_bin_size = 1000L,
                          gc_loess_span = NULL,
                          pon = NULL) {
   sequencing_type <- match.arg(sequencing_type)
@@ -858,6 +925,7 @@ read_bam_qc <- function(bam_path, bin_size = NULL, genome_build = "hg19",
         message("  Bins filtered by mappability < ", min_mappability, ": ", sum(low_map))
       }
 
+      reads_raw <- reads   # preserve raw counts before correction (used by IchorCNA path)
       message("  Applying LOESS GC correction (span=", gc_loess_span, ")...")
       reads_for_loess        <- reads
       reads_for_loess[is.na(reads_for_loess)] <- 0
@@ -904,7 +972,8 @@ read_bam_qc <- function(bam_path, bin_size = NULL, genome_build = "hg19",
   )
   if (!is.null(gc))           out$gc           <- gc
   if (!is.null(mappability))  out$mappability  <- mappability
-  if (exists("normal_reads")) out$normal_reads <- normal_reads
+  if (exists("normal_reads", inherits = FALSE)) out$normal_reads <- normal_reads
+  if (exists("reads_raw",    inherits = FALSE)) out$reads_raw    <- reads_raw
 
   # ── PoN normalization ──────────────────────────────────────────────────────
   if (!is.null(pon)) {
@@ -1100,7 +1169,7 @@ build_pon <- function(bam_paths,
                       use_antitarget      = FALSE,
                       antitarget_bin_size = 100000L,
                       split_targets       = FALSE,
-                      target_bin_size     = 267L,
+                      target_bin_size     = 1000L,
                       output_file         = NULL) {
   sequencing_type <- match.arg(sequencing_type)
   experiment_type <- match.arg(experiment_type)
@@ -1178,60 +1247,101 @@ build_pon <- function(bam_paths,
 
 # ─── run_bam_pipeline ────────────────────────────────────────────────────────
 
-#' Full BAM → CBS → CNAppR pipeline
+#' Coverage-aware BAM → segmentation → CNAppR pipeline
 #'
-#' Convenience wrapper that runs read_bam_qc(), run_cbs_segmentation()
-#' and resegment_sample() in a single call.
+#' Convenience wrapper that reads a BAM file, estimates coverage, and
+#' automatically routes to the appropriate segmentation method:
+#' CBS (Circular Binary Segmentation) for high-coverage samples
+#' (coverage >= coverage_threshold) or IchorCNA (HMM + tumor fraction
+#' estimation) for low-coverage / liquid biopsy samples
+#' (coverage < coverage_threshold). Returns a \code{CNAppR_segments} object.
 #'
-#' @param bam_path Character path to the indexed BAM file.
+#' @param bam_path Character path to the indexed BAM file (.bai required).
 #' @param sample_id Character sample identifier.
+#' @param method Character one of \code{"auto"} (default), \code{"CBS"}, or
+#'   \code{"ichorCNA"}. \code{"auto"} selects based on coverage vs
+#'   \code{coverage_threshold}; \code{"CBS"} or \code{"ichorCNA"} forces the
+#'   method regardless of coverage.
+#' @param coverage_threshold Numeric threshold (default 10). Samples with
+#'   estimated coverage below this value are routed to IchorCNA; samples at or
+#'   above are routed to CBS. Only used when \code{method = "auto"}.
 #' @param sequencing_type Character "illumina" or "nanopore".
 #' @param bin_size Integer bin size in bp for read counting.
 #'   Default 500000 (Illumina) or 1000000 (Nanopore).
-#' @param genome_build Character "hg19" or "hg38" (default "hg19").
+#' @param genome_build Character "hg19" or "hg38" (default "hg38").
 #' @param min_mapq Integer minimum mapping quality (default 20).
-#' @param alpha Numeric CBS significance level (default 0.01).
-#' @param nperm Integer CBS permutations (default 10000).
+#' @param gc_correction Logical, apply GC correction (default TRUE). Required
+#'   for reliable IchorCNA results.
+#' @param alpha Numeric CBS significance level (default 0.01). CBS only.
+#' @param nperm Integer CBS permutations (default 10000). CBS only.
 #' @param experiment_type Character "wgs" or "wes", or NULL (default). Controls
 #'   whether bins come from fixed genome-wide windows ("wgs") or a capture kit
 #'   BED ("wes"). When NULL, auto-detected: "wes" if targets_bed or capture_kit
-#'   is provided, "wgs" otherwise. Independent of sequencing_type.
+#'   is provided, "wgs" otherwise.
 #' @param targets_bed Character path to a BED file with capture kit regions.
-#'   Only used when experiment_type = "wes". When NULL, the standard exome BED
-#'   bundled in the package is used automatically. Default NULL.
-#' @param min_reads Integer minimum number of reads for a bin to be considered
-#'   valid. Bins below this threshold are set to NA. Recommended min_reads = 10
-#'   for WES (default 0, no filtering).
-#' @param pon Optional Panel of Normals object produced by build_pon().
-#'   Passed through to read_bam_qc(). Default NULL.
-#' @param ... Additional arguments passed to resegment_sample()
+#'   Only used when experiment_type = "wes". Default NULL.
+#' @param min_reads Integer minimum number of reads per bin (default 0).
+#' @param pon Optional Panel of Normals object from \code{build_pon()}.
+#'   Default NULL.
+#' @param read_length Integer assumed read length for coverage estimation
+#'   (default 150 bp).
+#' @param maxiter Integer maximum EM iterations for IchorCNA (default 50).
+#'   IchorCNA only.
+#' @param estimateNormal Logical, estimate normal contamination (default TRUE).
+#'   IchorCNA only.
+#' @param estimatePloidy Logical, estimate tumour ploidy (default TRUE).
+#'   IchorCNA only.
+#' @param ... Additional arguments passed to \code{resegment_sample()}
 #'   (e.g. purity, acrocentric, skip_resegmentation).
 #'
-#' @return Output of resegment_sample(): data frame with classified CNA
-#'   segments (chromosomal, arm, focal, diploid).
+#' @return A \code{CNAppR_segments} object with fields:
+#'   \describe{
+#'     \item{segments}{Data frame of classified CNA segments (CNAppR format).}
+#'     \item{method}{\code{"CBS"} or \code{"ichorCNA"}.}
+#'     \item{coverage}{Estimated mean coverage.}
+#'     \item{tumor_fraction}{Estimated tumor fraction (IchorCNA only; \code{NA}
+#'       for CBS).}
+#'     \item{ploidy}{Estimated tumour ploidy (IchorCNA only; \code{NA} for CBS).}
+#'     \item{metadata}{Named list: sample_id, genome_build, bin_size, qc_data.}
+#'   }
+#'   Use \code{as.data.frame(result)} to extract the segment table for use with
+#'   \code{calculate_cna_scores()}, \code{plot_genome_wide_cna()}, etc.
 #'
 #' @examples
 #' \dontrun{
-#'   # Nanopore low-pass WGS
+#'   # Auto-routing — IchorCNA for LP-WGS, CBS for high-coverage
 #'   result <- run_bam_pipeline(
-#'     "sample_nanopore.bam",
+#'     "sample.bam",
 #'     sample_id       = "sample_01",
 #'     sequencing_type = "nanopore",
-#'     bin_size        = 1000000
+#'     genome_build    = "hg38"
+#'   )
+#'   cat("Method:", result$method, "  TF:", result$tumor_fraction, "\n")
+#'   seg_df <- as.data.frame(result)
+#'
+#'   # Force IchorCNA for a liquid biopsy sample
+#'   result <- run_bam_pipeline(
+#'     "ctdna.bam",
+#'     sample_id       = "LB01",
+#'     method          = "ichorCNA",
+#'     sequencing_type = "nanopore",
+#'     genome_build    = "hg38"
 #'   )
 #'
-#'   # Illumina WES — standard exome BED used automatically
+#'   # Force CBS for a high-coverage WGS sample
 #'   result <- run_bam_pipeline(
-#'     "sample_wes.bam",
-#'     sample_id       = "sample_02",
+#'     "tumor_wgs.bam",
+#'     sample_id       = "ST01",
+#'     method          = "CBS",
 #'     sequencing_type = "illumina",
-#'     min_reads       = 10L
+#'     genome_build    = "hg38"
 #'   )
 #'
-#'   # Illumina WES — override with your own capture kit BED
+#'   # WES sample — CBS with capture kit BED
 #'   result <- run_bam_pipeline(
 #'     "sample_wes.bam",
 #'     sample_id       = "sample_02",
+#'     method          = "CBS",
 #'     sequencing_type = "illumina",
 #'     targets_bed     = "capture_kit.bed",
 #'     min_reads       = 10L
@@ -1241,12 +1351,14 @@ build_pon <- function(bam_paths,
 #' @export
 run_bam_pipeline <- function(bam_path,
                               sample_id,
+                              method              = c("auto", "CBS", "ichorCNA"),
+                              coverage_threshold  = 10,
                               sequencing_type     = c("illumina", "nanopore"),
-                              experiment_type      = NULL,
+                              experiment_type     = NULL,
                               bin_size            = NULL,
-                              genome_build        = "hg19",
+                              genome_build        = "hg38",
                               min_mapq            = 20L,
-                              gc_correction       = FALSE,
+                              gc_correction       = TRUE,
                               alpha               = 0.01,
                               nperm               = 10000L,
                               targets_bed         = NULL,
@@ -1256,16 +1368,25 @@ run_bam_pipeline <- function(bam_path,
                               use_antitarget      = FALSE,
                               antitarget_bin_size = 100000L,
                               split_targets       = NULL,
-                              target_bin_size     = 267L,
+                              target_bin_size     = 1000L,
                               gc_loess_span       = NULL,
                               pon                 = NULL,
+                              read_length         = 150L,
+                              maxiter             = 50L,
+                              estimateNormal      = TRUE,
+                              estimatePloidy      = TRUE,
+                              normal_init         = c(0.2, 0.4, 0.5, 0.6, 0.8),
                               ...) {
+  method          <- match.arg(method)
   sequencing_type <- match.arg(sequencing_type)
-  # experiment_type = NULL is passed through to read_bam_qc() for auto-detection
   if (!is.null(experiment_type))
     experiment_type <- match.arg(experiment_type, c("wgs", "wes"))
 
-  message("Step 1/3: Counting reads per bin from BAM...")
+  if (!gc_correction && method %in% c("auto", "ichorCNA"))
+    warning("gc_correction = FALSE is not recommended for ichorCNA; ",
+            "tumor fraction estimates may be unreliable.")
+
+  message("run_bam_pipeline [1/3]: Counting reads per bin...")
   qc_data <- read_bam_qc(
     bam_path            = bam_path,
     bin_size            = bin_size,
@@ -1286,99 +1407,63 @@ run_bam_pipeline <- function(bam_path,
     pon                 = pon
   )
 
-  message("Step 2/3: CBS segmentation (", sequencing_type, ")...")
-  seg_data <- run_cbs_segmentation(
-    qc_data         = qc_data,
-    sample_id       = sample_id,
-    alpha           = alpha,
-    nperm           = nperm,
-    sequencing_type = sequencing_type
+  coverage <- .estimate_coverage(qc_data, read_length = as.integer(read_length))
+  message("  Estimated coverage: ", round(coverage, 2), "x")
+
+  chosen <- switch(method,
+    auto     = if (coverage < coverage_threshold) "ichorCNA" else "CBS",
+    CBS      = "CBS",
+    ichorCNA = "ichorCNA"
   )
+  if (method == "auto")
+    message("  Coverage ", round(coverage, 2), "x ",
+            if (chosen == "ichorCNA") "<" else ">=",
+            " threshold ", coverage_threshold, "x → ", chosen)
 
-  message("Step 3/3: CNAppR re-segmentation and classification...")
-  resegment_sample(seg_data, sample_id = sample_id, ...)
-}
-
-
-# ─── harmonize_segments ───────────────────────────────────────────────────────
-
-#' Harmonize CNA segment tables from multiple samples or platforms
-#'
-#' Concatenates segment data frames from different samples, sequencing types
-#' (WES, WGS), or platforms (array, SNP chip) into a single CNAppR-compatible
-#' table. Normalises chromosome names to a common style and attaches a
-#' \code{source} column for downstream stratification.
-#'
-#' @param segments_list Named list of segment data frames. Each element must
-#'   contain at least: \code{ID}, \code{chr}, \code{loc.start},
-#'   \code{loc.end}, \code{seg.mean}. Typically the output of
-#'   \code{resegment_sample()} or \code{run_cbs_segmentation()}.
-#' @param source Character vector of length 1 or \code{length(segments_list)}.
-#'   Label for each data frame's origin — e.g. \code{"wes"}, \code{"wgs"},
-#'   \code{"array"}. Recycled if length 1. Default \code{"unknown"}.
-#' @param chr_style Character: chromosome name normalisation in the output.
-#'   \code{"integer"} (1–22, 23 = X, 24 = Y; default), \code{"ucsc"}
-#'   (chr1–chr22, chrX, chrY), or \code{"keep"} (no normalisation).
-#'
-#' @return A single data frame with columns \code{ID}, \code{chr},
-#'   \code{loc.start}, \code{loc.end}, \code{seg.mean}, \code{source}.
-#'   Rows are concatenated in the input order. Additional columns present in
-#'   all input data frames (e.g. \code{BAF}, \code{purity}) are preserved;
-#'   columns absent in some data frames are filled with \code{NA}.
-#'
-#' @examples
-#' \dontrun{
-#'   # Mix WES and WGS segments in a cohort analysis
-#'   wes_segs <- lapply(wes_ids, function(id) resegment_sample(wes_data, id))
-#'   wgs_segs <- lapply(wgs_ids, function(id) resegment_sample(wgs_data, id))
-#'   all_segs <- harmonize_segments(
-#'     c(wes_segs, wgs_segs),
-#'     source = c(rep("wes", length(wes_segs)), rep("wgs", length(wgs_segs)))
-#'   )
-#'   scores <- calculate_cna_scores(split(all_segs, all_segs$ID))
-#' }
-#'
-#' @export
-harmonize_segments <- function(segments_list,
-                                source    = "unknown",
-                                chr_style = c("integer", "ucsc", "keep")) {
-  chr_style <- match.arg(chr_style)
-
-  if (!is.list(segments_list) || length(segments_list) == 0L)
-    stop("segments_list must be a non-empty list of data frames.")
-
-  required_cols <- c("ID", "chr", "loc.start", "loc.end", "seg.mean")
-  source        <- rep_len(as.character(source), length(segments_list))
-
-  result_list <- vector("list", length(segments_list))
-
-  for (i in seq_along(segments_list)) {
-    df <- segments_list[[i]]
-    if (!is.data.frame(df))
-      stop("Element ", i, " of segments_list is not a data frame.")
-    missing_cols <- setdiff(required_cols, colnames(df))
-    if (length(missing_cols) > 0L)
-      stop("Element ", i, " is missing required columns: ",
-           paste(missing_cols, collapse = ", "))
-
-    out <- df
-    out$chr <- switch(chr_style,
-      integer = .norm_chr_to_int(out$chr),
-      ucsc    = .norm_chr_to_ucsc(out$chr),
-      keep    = as.character(out$chr)
+  if (chosen == "CBS") {
+    message("run_bam_pipeline [2/3]: CBS segmentation (", sequencing_type, ")...")
+    seg_data <- run_cbs_segmentation(
+      qc_data         = qc_data,
+      sample_id       = sample_id,
+      alpha           = alpha,
+      nperm           = as.integer(nperm),
+      sequencing_type = sequencing_type
     )
-    out$source <- source[i]
-    result_list[[i]] <- out
+    message("run_bam_pipeline [3/3]: Re-segmentation and classification...")
+    reseg <- resegment_sample(seg_data, sample_id = sample_id, ...)
+    new_cnapp_segments(
+      segments       = reseg,
+      method         = "CBS",
+      coverage       = coverage,
+      tumor_fraction = NA_real_,
+      ploidy         = NA_real_,
+      metadata       = list(sample_id    = sample_id,
+                            genome_build = genome_build,
+                            bin_size     = bin_size,
+                            qc_data      = qc_data)
+    )
+  } else {
+    message("run_bam_pipeline [2/3]: IchorCNA HMM segmentation...")
+    # Resolve bin_size so .run_ichorcna receives the actual value used by read_bam_qc
+    resolved_bin_size <- if (is.null(bin_size)) {
+      if (sequencing_type == "nanopore") 1000000L else 500000L
+    } else {
+      as.integer(bin_size)
+    }
+    res <- .run_ichorcna(
+      qc_data        = qc_data,
+      sample_id      = sample_id,
+      coverage       = coverage,
+      genome_build   = genome_build,
+      bin_size       = resolved_bin_size,
+      maxiter        = as.integer(maxiter),
+      estimateNormal = estimateNormal,
+      estimatePloidy = estimatePloidy,
+      normal_init    = normal_init,
+      ...
+    )
+    res$metadata$qc_data <- qc_data
+    res
   }
-
-  # rbind with NA-fill for columns present in only some data frames
-  all_cols <- unique(unlist(lapply(result_list, colnames)))
-  result_list <- lapply(result_list, function(df) {
-    missing <- setdiff(all_cols, colnames(df))
-    if (length(missing) > 0L)
-      df[missing] <- NA
-    df[, all_cols, drop = FALSE]
-  })
-
-  do.call(rbind, result_list)
 }
+

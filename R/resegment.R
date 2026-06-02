@@ -1,7 +1,12 @@
 #' Re-segment Copy Number Data
 #'
+#' Processes a single sample from a multi-sample CNA table. To process an
+#' entire cohort, iterate over sample IDs with \code{lapply()} — see Details.
+#'
 #' @param data Data frame with columns: ID, chr, loc.start, loc.end, seg.mean, [BAF, purity].
-#' @param sample_id Character sample identifier to process.
+#' @param sample_id Character. A \strong{single} sample identifier present in
+#'   \code{data$ID}. Passing a vector of IDs will cause an error; use
+#'   \code{lapply()} to process multiple samples (see Details).
 #' @param min_length Numeric minimum segment length in bp (default 100000).
 #' @param max_dist_segm Numeric maximum distance between segments to consider merging (bp, default 1000000).
 #' @param percent_dist Numeric percentage-based distance threshold (default 2).
@@ -29,10 +34,61 @@
 #' @param focal_percent_medium Numeric focal alteration medium threshold (default 0.15).
 #' @param focal_percent_high Numeric focal alteration high threshold (default 0.3).
 #' @param min_baf Numeric minimum BAF for CN-LOH detection (default 0.2).
-#' @param acrocentric Logical whether to ignore p arms of chromosomes 13,14,15,21,22 (default FALSE).
+#' @param acrocentric Logical whether to ignore p arms of chromosomes 13,14,15,21,22 (default TRUE).
 #' @param skip_resegmentation Logical whether to skip re-segmentation (default FALSE).
 #'
-#' @return Data frame with additional columns: score, classified, type, intensity, weight, comments
+#' @return Data frame with additional columns: score, classified, type,
+#'   intensity, weight, comments.
+#'
+#' @details
+#' **Processing a single sample**
+#'
+#' \code{resegment_sample()} is designed to process one sample per call so
+#' that a runtime error in one sample does not abort the rest of the cohort.
+#' Passing a vector to \code{sample_id} will fail — the function internally
+#' filters \code{data[data$ID == sample_id, ]} and expects exactly one unique
+#' identifier.
+#'
+#' **Processing a full cohort (recommended pattern)**
+#'
+#' Use \code{lapply()} wrapping the call in \code{tryCatch()} so that
+#' problematic samples are skipped and reported instead of crashing the run:
+#'
+#' \preformatted{
+#' sample_ids <- unique(data$ID)
+#'
+#' reseg_list <- lapply(sample_ids, function(id) {
+#'   tryCatch(
+#'     resegment_sample(data, sample_id = id),
+#'     error = function(e) {
+#'       warning("Skipping sample ", id, ": ", conditionMessage(e))
+#'       NULL
+#'     }
+#'   )
+#' })
+#' names(reseg_list) <- sample_ids
+#'
+#' # Remove samples that failed
+#' reseg_list <- Filter(Negate(is.null), reseg_list)
+#' }
+#'
+#' **Parallel processing (large cohorts)**
+#'
+#' For cohorts with hundreds of samples, use \code{BiocParallel}:
+#'
+#' \preformatted{
+#' library(BiocParallel)
+#' register(MulticoreParam(workers = 4))   # or SnowParam() on Windows
+#'
+#' reseg_list <- bplapply(sample_ids, function(id) {
+#'   tryCatch(
+#'     resegment_sample(data, sample_id = id),
+#'     error = function(e) NULL
+#'   )
+#' })
+#' names(reseg_list) <- sample_ids
+#' reseg_list <- Filter(Negate(is.null), reseg_list)
+#' }
 #'
 #' @export
 resegment_sample <- function(data,
@@ -137,10 +193,7 @@ resegment_sample <- function(data,
   loss_lim <- log2(0.2)  # cap floor: log2((1/2) * 0.4)
 
   # ===== Cap seg.mean always =====
-  file$seg.mean <- sapply(file$seg.mean, function(n) {
-    if (is.na(n)) n <- 0
-    if (n < loss_lim) loss_lim else n
-  })
+  file$seg.mean <- pmax(replace(file$seg.mean, is.na(file$seg.mean), 0), loss_lim)
 
   # ===== Re-segmentation =====
   if (!skip_resegmentation) {
@@ -454,11 +507,84 @@ resegment_sample <- function(data,
     filt$weight[na_cls]     <- 0L
   }
 
-  attr(filt, "n_chromosomal") <- n_cna
-  attr(filt, "n_arm") <- n_arm
-  attr(filt, "n_focal") <- n_focal
   return(filt)
 } # cierra .classify_cna_segments
+
+
+# ─── harmonize_segments ───────────────────────────────────────────────────────
+
+#' Harmonize CNA segment tables from multiple samples or platforms
+#'
+#' Concatenates segment data frames from different samples, sequencing types
+#' (WES, WGS), or platforms (array, SNP chip) into a single CNAppR-compatible
+#' table. Normalises chromosome names to a common style and attaches a
+#' \code{source} column for downstream stratification.
+#'
+#' @param segments_list Named list of segment data frames. Each element must
+#'   contain at least: \code{ID}, \code{chr}, \code{loc.start},
+#'   \code{loc.end}, \code{seg.mean}. Typically the output of
+#'   \code{resegment_sample()} or \code{run_cbs_segmentation()}.
+#' @param source Character vector of length 1 or \code{length(segments_list)}.
+#'   Label for each data frame's origin — e.g. \code{"wes"}, \code{"wgs"},
+#'   \code{"array"}. Recycled if length 1. Default \code{"unknown"}.
+#' @param chr_style Character: chromosome name normalisation in the output.
+#'   \code{"integer"} (1-22, 23=X, 24=Y; default), \code{"ucsc"}
+#'   (chr1-chr22, chrX, chrY), or \code{"keep"} (no normalisation).
+#'
+#' @return A single data frame with columns \code{ID}, \code{chr},
+#'   \code{loc.start}, \code{loc.end}, \code{seg.mean}, \code{source}.
+#'
+#' @examples
+#' \dontrun{
+#'   all_segs <- harmonize_segments(
+#'     c(wes_segs, wgs_segs),
+#'     source = c(rep("wes", length(wes_segs)), rep("wgs", length(wgs_segs)))
+#'   )
+#'   scores <- calculate_cna_scores(split(all_segs, all_segs$ID))
+#' }
+#'
+#' @export
+harmonize_segments <- function(segments_list,
+                                source    = "unknown",
+                                chr_style = c("integer", "ucsc", "keep")) {
+  chr_style <- match.arg(chr_style)
+
+  if (!is.list(segments_list) || length(segments_list) == 0L)
+    stop("segments_list must be a non-empty list of data frames.")
+
+  required_cols <- c("ID", "chr", "loc.start", "loc.end", "seg.mean")
+  source        <- rep_len(as.character(source), length(segments_list))
+
+  result_list <- vector("list", length(segments_list))
+
+  for (i in seq_along(segments_list)) {
+    df <- segments_list[[i]]
+    if (!is.data.frame(df))
+      stop("Element ", i, " of segments_list is not a data frame.")
+    missing_cols <- setdiff(required_cols, colnames(df))
+    if (length(missing_cols) > 0L)
+      stop("Element ", i, " is missing required columns: ",
+           paste(missing_cols, collapse = ", "))
+
+    out <- df
+    out$chr <- switch(chr_style,
+      integer = .norm_chr_to_int(out$chr),
+      ucsc    = .norm_chr_to_ucsc(out$chr),
+      keep    = as.character(out$chr)
+    )
+    out$source <- source[i]
+    result_list[[i]] <- out
+  }
+
+  all_cols <- unique(unlist(lapply(result_list, colnames)))
+  result_list <- lapply(result_list, function(df) {
+    missing <- setdiff(all_cols, colnames(df))
+    if (length(missing) > 0L) df[missing] <- NA
+    df[, all_cols, drop = FALSE]
+  })
+
+  do.call(rbind, result_list)
+}
 
 
 #' @keywords internal

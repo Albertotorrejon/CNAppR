@@ -253,10 +253,10 @@
 </div>
 <div class="space-y-4">
 <div class="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto text-primary">
-<span class="material-symbols-outlined text-3xl">model_training</span>
+<span class="material-symbols-outlined text-3xl">cardiology</span>
 </div>
-<h3 class="text-headline-md font-bold">Random Forest Prediction</h3>
-<p class="text-body-md text-on-surface-variant">Machine learning integration for automated classification and predictive modeling of clinical outcomes.</p>
+<h3 class="text-headline-md font-bold">Survival Analysis</h3>
+<p class="text-body-md text-on-surface-variant">Kaplan-Meier curves and log-rank tests stratified by FCS, BCS or GCS for clinical outcome assessment.</p>
 </div></div>
 </div>
 </section>
@@ -378,6 +378,9 @@
 <div class="p-3 space-y-2">
 <div class="feature-card p-3 rounded-lg border border-transparent hover:border-primary/30 cursor-pointer flex items-center gap-3 transition-all" onclick="showFeature('plot_segmentation', 'Profile visualisation', 'Plot original and re-segmented CNA profiles.', 'image', this)">
 <span class="text-label-mono font-label-mono text-primary text-[11px] bg-primary/5 px-2 py-1 rounded">plot_segmentation()</span>
+</div>
+<div class="feature-card p-3 rounded-lg border border-transparent hover:border-primary/30 cursor-pointer flex items-center gap-3 transition-all" onclick="showFeature('plot_genome_wide_cna', 'Genome-wide CNA profile', 'ASCAT-style scatter + segment plot from BAM bins.', 'scatter_plot', this)">
+<span class="text-label-mono font-label-mono text-primary text-[11px] bg-primary/5 px-2 py-1 rounded">plot_genome_wide_cna()</span>
 </div>
 <div class="feature-card p-3 rounded-lg border border-transparent hover:border-primary/30 cursor-pointer flex items-center gap-3 transition-all" onclick="showFeature('plot_cn_frequency', 'CNA frequency', 'Genome-wide gain/loss frequency across a cohort.', 'show_chart', this)">
 <span class="text-label-mono font-label-mono text-primary text-[11px] bg-primary/5 px-2 py-1 rounded">plot_cn_frequency()</span>

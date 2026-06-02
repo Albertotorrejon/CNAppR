@@ -168,18 +168,26 @@ plot_cn_frequency <- function(resegmented_list,
 
   for (i in seq_along(resegmented_list)) {
     reseg <- resegmented_list[[i]]
+    if (is.null(reseg) || nrow(reseg) == 0L) next
 
-    for (j in seq_len(nrow(reseg))) {
-      chr <- as.numeric(gsub("chr", "", reseg$chr[j]))
-      if (!is.na(chr) && chr >= 1 && chr <= 24) {
-        if (reseg$seg.mean[j] > gain_threshold) {
-          freq_matrix[chr, i] <- freq_matrix[chr, i] + 1
-        }
-        if (reseg$seg.mean[j] < loss_threshold) {
-          freq_matrix[chr, i] <- freq_matrix[chr, i] - 1
-        }
-      }
-    }
+    chr_num <- suppressWarnings(
+      as.integer(gsub("^chr", "", as.character(reseg$chr)))
+    )
+    valid <- !is.na(chr_num) & chr_num >= 1L & chr_num <= 24L
+    if (!any(valid)) next
+
+    chr_v <- chr_num[valid]
+    seg_v <- reseg$seg.mean[valid]
+
+    gain_idx <- which(seg_v > gain_threshold)
+    loss_idx <- which(seg_v < loss_threshold)
+
+    if (length(gain_idx) > 0L)
+      freq_matrix[, i] <- freq_matrix[, i] +
+        tabulate(chr_v[gain_idx], nbins = 24L)
+    if (length(loss_idx) > 0L)
+      freq_matrix[, i] <- freq_matrix[, i] -
+        tabulate(chr_v[loss_idx], nbins = 24L)
   }
 
   # Convert to long format for ggplot

@@ -86,21 +86,19 @@ calculate_cna_scores <- function(reseg_list, sample_names = NULL) {
 
 #' Internal: Normalize Score Vector
 #'
-#' Standardizes a score vector (mean 0, sd 1) if not all zeros.
+#' Standardizes a score vector (mean 0, sd 1) if not all identical.
 #'
 #' @param score Numeric vector of scores.
 #'
-#' @return Numeric vector (normalized or original if all zeros).
+#' @return Numeric vector (normalized, or zeros if all values are identical or
+#'   fewer than 2 samples).
 #'
 #' @keywords internal
 .normalize_score <- function(score) {
-  if (length(which(score == 0)) == length(score)) {
-    # All zeros: no normalization
-    return(score)
-  } else {
-    # Standard normalization
-    return((score - mean(score)) / stats::sd(score))
+  if (length(score) < 2L || stats::sd(score) == 0) {
+    return(rep(0, length(score)))
   }
+  (score - mean(score)) / stats::sd(score)
 }
 
 
