@@ -71,13 +71,26 @@ head(scores)
 #> TCGA-DD-A1QA   0   1 -0.54
 ```
 
-Visualise the cohort-level CNA frequency:
+## Visualisation
+
+CNAppR provides three plot functions for CNA profiles:
 
 ```r
-plot_cn_frequency(seg)
+# 1. Genome-wide frequency profile (gain/loss % per genomic region)
+arm_ref <- system.file("aux_files/segmented_files_hg19/autosomes_hg19_by_arms.txt",
+                       package = "CNAppR")
+freq <- compute_region_frequencies(seg, arm_ref, gain_thr = 0.23, loss_thr = -0.23)
+plot_frequency_profile(freq, title = "Copy Number Frequency | TCGA-LIHC")
+
+# 2. ASCAT-style genome-wide CNA profile for a single sample (bins + segments)
+plot_genome_wide_cna(bins_data, seg_data, sample_id = "sample_01",
+                     tumor_fraction = 0.48, ploidy = 1.96)
+
+# 3. Before / after re-segmentation comparison
+plot_segmentation(original_data, resegmented_data, sample_id = "sample_01")
 ```
 
-![Copy Number Frequency — TCGA-LIHC (n = 354)](docs/img/Plots_gifts.gif)
+![Copy Number Frequency — TCGA-LIHC (n = 354), multiple threshold settings](docs/img/Plots_gifts.gif)
 
 ## Input format
 
