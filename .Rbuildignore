@@ -2,3 +2,8 @@
 ^\.Rproj\.user$
 ^LICENSE\.md$
 ^index\.html$
+\.Rhistory$
+^\.git$
+^inst/models/datos
+^inst/models/demo
+^inst/extdata/manage_cytobands\.R$

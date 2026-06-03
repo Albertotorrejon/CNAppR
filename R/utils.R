@@ -292,13 +292,9 @@ prepare_annotation_data <- function(data, annot_filepath, sep = "\t",
 #'
 #' @export
 get_cytobands_data <- function(level = "level3") {
-  # Reference cytoband data (hg19/GRCh37)
-  # Source: aux_files/cytobands_level3_pq.csv and cytobands_level4_chrom.csv
-  # from the original CNApp Shiny repository
-
   if (level == "level3") {
-    # p/q arm definitions per chromosome (hg19)
-    # arms[1,"end"] is used as the centromere position in scoring
+    # p/q arm definitions per chromosome (hg19/GRCh37).
+    # arms[1,"end"] is used as the centromere position in scoring.
     l3 <- data.frame(
       chr = rep(1:24, each = 2),
       label = rep(c("p", "q"), 24),
@@ -360,8 +356,7 @@ get_cytobands_data <- function(level = "level3") {
     return(l3)
 
   } else if (level == "level4") {
-    # Total chromosome lengths (hg19)
-    # Source: cytobands_level4_chrom.csv from the original repository
+    # Total chromosome lengths (hg19/GRCh37).
     l4 <- data.frame(
       chr = 1:24,
       start = rep(0, 24),

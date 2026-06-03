@@ -1,15 +1,3 @@
-# BAM → CBS → CNAppR pipeline
-#
-# Full workflow: BAM file → QC + read counting → CBS segmentation →
-#   CNAppR format → resegment_sample()
-#
-# Required Bioconductor packages: Rsamtools, GenomicRanges, DNAcopy
-# Install with: BiocManager::install(c("Rsamtools", "GenomicRanges", "DNAcopy"))
-#
-# Illumina (WES/exome): paired-end reads, smaller bins (~500 kb)
-# Nanopore (low-pass WGS): single long reads, larger bins (~1 Mb)
-
-
 # ─── CNAppR_segments S3 class ────────────────────────────────────────────────
 
 #' Constructor for CNAppR_segments

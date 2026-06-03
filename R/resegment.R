@@ -170,27 +170,7 @@ resegment_sample <- function(data,
     }
   }
 
-  # ===== Purity Correction (disabled) =====
-  # The original CNApp applied purity correction using a minimum floor of 0.4.
-  # This floor is inappropriate for liquid biopsy (tumor fraction 5-15%) and
-  # would overcorrect seg.mean values in that context. Users requiring purity
-  # correction should apply it externally (e.g. using ichorCNA tumor fraction
-  # estimates) before passing segments to resegment_sample().
-  #
-  # r_lim <- 0.4
-  # if (!is.null(file$purity) && !is.na(file$purity[1])) {
-  #   r <- file$purity[1]
-  #   if (r < r_lim) r <- r_lim
-  #   v <- file$seg.mean
-  #   file$seg.mean <- sapply(v, function(n, r) {
-  #     inside_log <- (2^n + (r - 1)) / r
-  #     if (inside_log <= 2^log2((1/2) * r_lim)) inside_log <- 2^log2((1/2) * r_lim)
-  #     log2(inside_log)
-  #   }, r = r)
-  #   file$seg.mean <- ifelse(is.na(file$seg.mean), 0, file$seg.mean)
-  # }
-
-  loss_lim <- log2(0.2)  # cap floor: log2((1/2) * 0.4)
+  loss_lim <- log2(0.2)  # cap floor: segments below this are clamped before classification
 
   # ===== Cap seg.mean always =====
   file$seg.mean <- pmax(replace(file$seg.mean, is.na(file$seg.mean), 0), loss_lim)
@@ -494,7 +474,7 @@ resegment_sample <- function(data,
       filt$intensity[i]  <- "None"
     }
 
-  } # cierra for
+  }
 
   # Segments that were skipped early (e.g. Y chr, invalid chr) remain NA —
   # they are regions smoothed back to diploid by the resegmentation algorithm.
@@ -508,7 +488,7 @@ resegment_sample <- function(data,
   }
 
   return(filt)
-} # cierra .classify_cna_segments
+}
 
 
 # ─── harmonize_segments ───────────────────────────────────────────────────────

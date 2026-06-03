@@ -48,15 +48,12 @@ calculate_cna_scores <- function(reseg_list, sample_names = NULL) {
     stop("Length of sample_names must match length of reseg_list.")
   }
 
-  # Initialize score vectors
   fcs <- numeric(length(reseg_list))
   bcs <- numeric(length(reseg_list))
 
-  # Extract counts from each resegmented sample
   for (i in seq_along(reseg_list)) {
     reseg <- reseg_list[[i]]
 
-    # Count alterations by type
     n_focal       <- sum(reseg$score[reseg$classified == "focal"], na.rm = TRUE)
     n_chromosomal <- sum(reseg$score[reseg$classified == "chromosomal"], na.rm = TRUE)
     n_arm         <- sum(reseg$score[reseg$classified == "arm"], na.rm = TRUE)
@@ -65,11 +62,9 @@ calculate_cna_scores <- function(reseg_list, sample_names = NULL) {
     bcs[i] <- n_chromosomal + n_arm
   }
 
-  # Normalize scores
   norm_fcs <- .normalize_score(fcs)
   norm_bcs <- .normalize_score(bcs)
 
-  # Global score
   gcs <- norm_fcs + norm_bcs
 
   scores <- data.frame(

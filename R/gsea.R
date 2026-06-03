@@ -1,9 +1,3 @@
-# Gene Set Enrichment Analysis (GSEA) for CNA data
-#
-# Dependencies (Suggests): fgsea (Bioconductor), msigdbr (CRAN)
-# Install: BiocManager::install("fgsea"); install.packages("msigdbr")
-
-
 # ─── internal helpers ────────────────────────────────────────────────────────
 
 # Retrieves gene sets from MSigDB via msigdbr, handles API differences across

@@ -1,9 +1,3 @@
-# Survival analysis stratified by CNA scores
-#
-# Dependencies (Suggests): survival, survminer
-# Install: install.packages(c("survival", "survminer"))
-
-
 #' Survival Analysis Stratified by CNA Scores
 #'
 #' Performs Kaplan-Meier survival analysis and log-rank testing stratifying
