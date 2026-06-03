@@ -4,7 +4,7 @@
 [![R >= 4.1](https://img.shields.io/badge/R-%3E%3D4.1-276DC3.svg)](https://cran.r-project.org/)
 [![Platform](https://img.shields.io/badge/platform-WES%20%7C%20WGS%20%7C%20Array-brightgreen)]()
 
-CNAppR is an R package for the quantification and integrative analysis of somatic copy number alterations (CNAs) in cancer. It extends the original [CNApp](https://github.com/ait5/CNApp) framework (Franch-Expósito et al., *eLife* 2020) with a native BAM processing pipeline supporting both short-read (Illumina WES/WGS) and long-read (Nanopore) sequencing, GSEA-based pathway enrichment, and Kaplan–Meier survival analysis.
+CNAppR is an R package for the quantification and integrative analysis of somatic copy number alterations (CNAs) in cancer. It extends the original [CNApp](https://github.com/ait5/CNApp) framework (Franch-Expósito et al., *eLife* 2020) with a native BAM processing pipeline supporting both short-read (Illumina WES/WGS) and long-read (Nanopore) sequencing, and GSEA-based pathway enrichment.
 
 CNAppR accepts two types of input:
 - **Pre-segmented data** from any upstream tool (ASCAT, CNVkit, ichorCNA, SNP arrays)
@@ -181,24 +181,6 @@ gsea_res  <- run_gsea(ranks, collections = c("H", "C2"))
 gsea_res$plot         # NES barplot, top pathways by |NES|
 gsea_res$significant  # data frame of pathways with FDR < 0.05
 ```
-
----
-
-## Survival analysis
-
-`run_survival_analysis()` stratifies samples by CNA score (FCS, BCS, or GCS) into high/low groups and tests for differences in overall or progression-free survival using the log-rank test. It returns a Kaplan–Meier curve and the associated p-value.
-
-Requires `survival` and `survminer`:
-
-```r
-install.packages(c("survival", "survminer"))
-
-res <- run_survival_analysis(scores, survival_data = surv_df, score_var = "GCS")
-res$plot    # Kaplan-Meier curve
-res$pvalue  # log-rank p-value
-```
-
-`surv_df` must have columns `time` (numeric, months or days) and `event` (0 = censored, 1 = event), with row names matching the sample IDs in `scores`.
 
 ---
 
