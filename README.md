@@ -57,6 +57,8 @@ seg_wgs <- run_bam_pipeline(
 
 Both functions return a data frame with columns `chr`, `loc.start`, `loc.end`, `seg.mean` compatible with all downstream CNAppR functions.
 
+> **Coverage routing:** when the estimated mean coverage is below 10×, CNAppR automatically delegates to [ichorCNA](https://github.com/broadinstitute/ichorCNA) for segmentation and tumour fraction estimation. This is the recommended path for low-pass WGS and liquid biopsy cfDNA samples. Above 10×, the built-in CBS pipeline is used.
+
 ### Panel of Normals (PoN)
 
 For WES cohorts, a Panel of Normals corrects for systematic technical biases (probe efficiency, GC waves) that are consistent across samples. Build a PoN once from matched normal BAMs and pass it to every tumour run:
