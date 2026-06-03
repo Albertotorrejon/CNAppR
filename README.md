@@ -89,6 +89,22 @@ seg_all <- harmonize_segments(
 
 ---
 
+## Input format
+
+Minimum required columns for pre-segmented data:
+
+| Column | Type | Description |
+|---|---|---|
+| `ID` | character | Sample identifier |
+| `chr` | integer | Chromosome (1–22) |
+| `loc.start` | integer | Segment start position (bp) |
+| `loc.end` | integer | Segment end position (bp) |
+| `seg.mean` | numeric | Log2 copy number ratio |
+
+Optional columns preserved throughout the pipeline: `BAF`, `purity`.
+
+---
+
 ## Segmentation and scoring
 
 `resegment_sample()` post-processes the raw CBS segments for a single sample: it merges short noisy fragments, applies gain/loss thresholds, and classifies each alteration as **focal** (sub-arm), **arm-level**, or **chromosomal**. Running it across a cohort produces a clean, classified segment list ready for scoring and visualisation.
@@ -181,22 +197,6 @@ gsea_res  <- run_gsea(ranks, collections = c("H", "C2"))
 gsea_res$plot         # NES barplot, top pathways by |NES|
 gsea_res$significant  # data frame of pathways with FDR < 0.05
 ```
-
----
-
-## Input format
-
-Minimum required columns for pre-segmented data:
-
-| Column | Type | Description |
-|---|---|---|
-| `ID` | character | Sample identifier |
-| `chr` | integer | Chromosome (1–22) |
-| `loc.start` | integer | Segment start position (bp) |
-| `loc.end` | integer | Segment end position (bp) |
-| `seg.mean` | numeric | Log2 copy number ratio |
-
-Optional columns preserved throughout the pipeline: `BAF`, `purity`.
 
 ---
 
