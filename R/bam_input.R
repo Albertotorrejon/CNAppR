@@ -19,6 +19,7 @@ new_cnapp_segments <- function(segments,
                                 coverage,
                                 tumor_fraction = NA_real_,
                                 ploidy         = NA_real_,
+                                scores         = NULL,
                                 metadata       = list()) {
   structure(
     list(
@@ -27,6 +28,7 @@ new_cnapp_segments <- function(segments,
       coverage       = coverage,
       tumor_fraction = tumor_fraction,
       ploidy         = ploidy,
+      scores         = scores,
       metadata       = metadata
     ),
     class = "CNAppR_segments"
@@ -1297,6 +1299,7 @@ build_pon <- function(bam_paths,
 #' @return A \code{CNAppR_segments} object with fields:
 #'   \describe{
 #'     \item{segments}{Data frame of classified CNA segments (CNAppR format).}
+#'     \item{scores}{Data frame with FCS, BCS and GCS scores for the sample.}
 #'     \item{method}{\code{"CBS"} or \code{"ichorCNA"}.}
 #'     \item{coverage}{Estimated mean coverage.}
 #'     \item{tumor_fraction}{Estimated tumor fraction (IchorCNA only; \code{NA}
@@ -1305,7 +1308,7 @@ build_pon <- function(bam_paths,
 #'     \item{metadata}{Named list: sample_id, genome_build, bin_size, qc_data.}
 #'   }
 #'   Use \code{as.data.frame(result)} to extract the segment table for use with
-#'   \code{calculate_cna_scores()}, \code{plot_genome_wide_cna()}, etc.
+#'   \code{plot_genome_wide_cna()}, etc.
 #'
 #' @examples
 #' \dontrun{
@@ -1431,7 +1434,7 @@ run_bam_pipeline <- function(bam_path,
     )
     message("run_bam_pipeline [3/3]: Re-segmentation and classification...")
     reseg <- resegment_sample(seg_data, sample_id = sample_id, ...)
-    new_cnapp_segments(
+    out <- new_cnapp_segments(
       segments       = reseg,
       method         = "CBS",
       coverage       = coverage,
@@ -1444,7 +1447,6 @@ run_bam_pipeline <- function(bam_path,
     )
   } else {
     message("run_bam_pipeline [2/3]: IchorCNA HMM segmentation...")
-    # Resolve bin_size so .run_ichorcna receives the actual value used by read_bam_qc
     resolved_bin_size <- if (is.null(bin_size)) {
       if (sequencing_type == "nanopore") 1000000L else 500000L
     } else {
@@ -1463,7 +1465,16 @@ run_bam_pipeline <- function(bam_path,
       ...
     )
     res$metadata$qc_data <- qc_data
-    res
+    out <- res
   }
+
+  # Compute CNA scores and attach to the result object
+  seg_list <- stats::setNames(list(out$segments), sample_id)
+  out$scores <- tryCatch(
+    calculate_cna_scores(seg_list),
+    error = function(e) { warning("Score computation failed: ", e$message); NULL }
+  )
+
+  out
 }
 
