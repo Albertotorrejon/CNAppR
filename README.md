@@ -93,6 +93,8 @@ seg_all <- harmonize_segments(
 
 `resegment_sample()` post-processes the raw CBS segments for a single sample: it merges short noisy fragments, applies gain/loss thresholds, and classifies each alteration as **focal** (sub-arm), **arm-level**, or **chromosomal**. Running it across a cohort produces a clean, classified segment list ready for scoring and visualisation.
 
+`resegment_sample()` processes one sample at a time and requires the full data frame plus a `sample_id` argument. To run it across a full cohort, iterate over all unique sample identifiers using `lapply`.
+
 `calculate_cna_scores()` then summarises the CNA burden of each sample into three orthogonal scores:
 
 ```r
