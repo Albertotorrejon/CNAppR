@@ -4,7 +4,13 @@
 [![R >= 4.1](https://img.shields.io/badge/R-%3E%3D4.1-276DC3.svg)](https://cran.r-project.org/)
 [![Platform](https://img.shields.io/badge/platform-WES%20%7C%20WGS%20%7C%20Array-brightgreen)]()
 
-CNAppR is an R package for quantifying somatic copy number alterations (CNAs) in cancer. It extends the [CNApp](https://github.com/ait5/CNApp) framework with a native BAM processing pipeline, Nanopore support, GSEA-based pathway enrichment, and survival analysis. The package works with pre-segmented data from any upstream tool (ASCAT, CNVkit, SNP arrays) as well as directly from aligned BAM files.
+CNAppR is an R package for the quantification and integrative analysis of somatic copy number alterations (CNAs) in cancer. It extends the original [CNApp](https://github.com/ait5/CNApp) framework (Franch-Expósito et al., *eLife* 2020) with a native BAM processing pipeline supporting both short-read (Illumina WES/WGS) and long-read (Nanopore) sequencing, GSEA-based pathway enrichment, and Kaplan–Meier survival analysis.
+
+CNAppR accepts two types of input:
+- **Pre-segmented data** from any upstream tool (ASCAT, CNVkit, ichorCNA, SNP arrays)
+- **Aligned BAM files** processed directly through the built-in read-counting and segmentation pipeline
+
+---
 
 ## Installation
 
@@ -12,28 +18,30 @@ CNAppR is an R package for quantifying somatic copy number alterations (CNAs) in
 devtools::install_github("Albertotorrejon/CNAppR")
 ```
 
-For BAM processing (optional — install only what you need):
+Optional dependencies for BAM processing — install only what you need:
 
 ```r
 # Read counting and CBS segmentation
 BiocManager::install(c("Rsamtools", "GenomicRanges", "DNAcopy"))
 
-# GC correction for WES (~800 MB each, install only the build you need)
+# GC content correction reference genomes (~800 MB each)
 BiocManager::install("BSgenome.Hsapiens.UCSC.hg19")
 BiocManager::install("BSgenome.Hsapiens.UCSC.hg38")
 ```
 
+---
+
 ## BAM pipeline
 
-For samples where you have aligned reads, use `run_bam_pipeline()` as a single-call convenience wrapper:
+`run_bam_pipeline()` takes a single aligned BAM file and returns a ready-to-use segment table. Internally it performs read counting per genomic bin, GC content correction, mappability filtering, and CBS segmentation via `DNAcopy`. The `sequencing_type` argument controls bin size defaults and outlier smoothing: use `"illumina"` for standard short-read data and `"nanopore"` for long-read low-pass WGS.
 
 ```r
-# WES — Illumina
+# WES — Illumina short-read
 seg_wes <- run_bam_pipeline(
   bam_path        = "tumor.bam",
   sample_id       = "sample_01",
   sequencing_type = "illumina",
-  targets_bed     = "capture_kit.bed",
+  targets_bed     = "capture_kit.bed",   # restricts counting to exon targets
   genome_build    = "hg19"
 )
 
@@ -42,12 +50,16 @@ seg_wgs <- run_bam_pipeline(
   bam_path        = "cfDNA_nanopore.bam",
   sample_id       = "sample_01",
   sequencing_type = "nanopore",
-  bin_size        = 1000000L,
+  bin_size        = 1000000L,            # 1 Mb bins recommended for low-pass
   genome_build    = "hg19"
 )
 ```
 
+Both functions return a data frame with columns `chr`, `loc.start`, `loc.end`, `seg.mean` compatible with all downstream CNAppR functions.
+
 ### Panel of Normals (PoN)
+
+For WES cohorts, a Panel of Normals corrects for systematic technical biases (probe efficiency, GC waves) that are consistent across samples. Build a PoN once from matched normal BAMs and pass it to every tumour run:
 
 ```r
 pon <- build_pon(
@@ -63,6 +75,8 @@ seg <- run_bam_pipeline("tumor.bam", sample_id = "sample_01",
 
 ### Combining WES and WGS samples
 
+`harmonize_segments()` normalises and merges segment tables produced by different platforms or sequencing types into a single cohort-level table, enabling joint scoring across heterogeneous datasets:
+
 ```r
 seg_all <- harmonize_segments(
   segments_list = c(seg_wes_list, seg_wgs_list),
@@ -71,24 +85,28 @@ seg_all <- harmonize_segments(
 )
 ```
 
+---
+
 ## Segmentation and scoring
 
-`resegment_sample()` re-segments and classifies CNA calls for one sample. Pass a pre-segmented table (from `read_cna_file()` or the BAM pipeline) and collect results across the cohort:
+`resegment_sample()` post-processes the raw CBS segments for a single sample: it merges short noisy fragments, applies gain/loss thresholds, and classifies each alteration as **focal** (sub-arm), **arm-level**, or **chromosomal**. Running it across a cohort produces a clean, classified segment list ready for scoring and visualisation.
+
+`calculate_cna_scores()` then summarises the CNA burden of each sample into three orthogonal scores:
 
 ```r
 library(CNAppR)
 
-# Load pre-segmented data
+# Load pre-segmented data (or use output from run_bam_pipeline)
 data <- read_cna_file("path/to/segments.txt")
 
-# Example with the bundled LIHC dataset (354 samples)
+# Example with the bundled TCGA-LIHC dataset (354 samples)
 data <- read_cna_file(
   system.file("models", "datos TFM",
               "LIHC_354_cnvsegments_input_scores_nopurity.txt",
               package = "CNAppR")
 )
 
-# Re-segment all samples
+# Re-segment the full cohort
 sample_ids <- unique(data$ID)
 seg <- lapply(sample_ids, function(id) {
   tryCatch(resegment_sample(data, sample_id = id),
@@ -97,7 +115,7 @@ seg <- lapply(sample_ids, function(id) {
 names(seg) <- sample_ids
 seg <- Filter(Negate(is.null), seg)
 
-# Compute FCS, BCS and GCS scores
+# Compute CNA scores
 scores <- calculate_cna_scores(seg)
 head(scores)
 #>              FCS BCS    GCS
@@ -107,30 +125,44 @@ head(scores)
 
 | Score | Description |
 |---|---|
-| **FCS** | Focal CNA Score — weighted sub-arm alteration burden |
-| **BCS** | Broad CNA Score — count of arm and chromosomal alterations |
-| **GCS** | Global CNA Score — normalised combination of FCS and BCS |
+| **FCS** | Focal CNA Score — length-weighted burden of sub-arm alterations |
+| **BCS** | Broad CNA Score — count of arm-level and chromosomal alterations |
+| **GCS** | Global CNA Score — normalised linear combination of FCS and BCS |
+
+High GCS samples typically show chromosomal instability (CIN) patterns; high FCS with low BCS is characteristic of focal amplifications (e.g. oncogene amplicons).
+
+---
 
 ## Visualisation
 
+CNAppR provides three complementary plot functions:
+
+- `plot_frequency_profile()` — cohort-level gain/loss frequency across the genome, using any reference granularity (arm-level, cytoband, or WES targets)
+- `plot_genome_wide_cna()` — ASCAT-style single-sample profile with per-bin log2 ratio dots coloured by CNA call (NEUT, HETD, GAIN, AMP) and segment mean lines
+- `plot_segmentation()` — side-by-side comparison of original and re-segmented profiles for QC
+
 ```r
-# Genome-wide frequency profile (gain/loss % per genomic region)
+# Cohort-level frequency profile
 arm_ref <- system.file("aux_files/segmented_files_hg19/autosomes_hg19_by_arms.txt",
                        package = "CNAppR")
 freq <- compute_region_frequencies(seg, arm_ref, gain_thr = 0.23, loss_thr = -0.23)
 plot_frequency_profile(freq, title = "Copy Number Frequency | TCGA-LIHC")
 
-# ASCAT-style genome-wide CNA profile (bins + segments)
+# Single-sample genome-wide profile (requires bins from read_bam_qc or run_bam_pipeline)
 plot_genome_wide_cna(bins_data, seg_data, sample_id = "sample_01",
                      tumor_fraction = 0.48, ploidy = 1.96)
 
-# Before / after re-segmentation comparison
+# QC: before / after re-segmentation
 plot_segmentation(original_data, resegmented_data, sample_id = "sample_01")
 ```
 
 ![Genome-wide CNA profiles — Nanopore WGS](docs/img/nanopore_profiles.png)
 
+---
+
 ## Pathway enrichment
+
+`run_gsea()` connects the CNA profile of a sample to biological pathway activity. It builds a gene-level rank vector from the annotated segment log2 ratios and runs pre-ranked GSEA against MSigDB collections (Hallmark, C2, or others) via `fgsea`. Amplified genes receive positive ranks; deleted genes receive negative ranks.
 
 Requires `fgsea` and `msigdbr`:
 
@@ -142,11 +174,15 @@ annotated <- annotate_cna_genes(seg[[sample_id]], genome_build = "hg19")
 ranks     <- build_gene_ranks(annotated, score_col = "seg.mean")
 
 gsea_res  <- run_gsea(ranks, collections = c("H", "C2"))
-gsea_res$plot         # NES barplot
-gsea_res$significant  # pathways with FDR < 0.05
+gsea_res$plot         # NES barplot, top pathways by |NES|
+gsea_res$significant  # data frame of pathways with FDR < 0.05
 ```
 
+---
+
 ## Survival analysis
+
+`run_survival_analysis()` stratifies samples by CNA score (FCS, BCS, or GCS) into high/low groups and tests for differences in overall or progression-free survival using the log-rank test. It returns a Kaplan–Meier curve and the associated p-value.
 
 Requires `survival` and `survminer`:
 
@@ -158,7 +194,9 @@ res$plot    # Kaplan-Meier curve
 res$pvalue  # log-rank p-value
 ```
 
-`surv_df` must have columns `time` (numeric, months/days) and `event` (0/1), with row names matching the sample IDs in `scores`.
+`surv_df` must have columns `time` (numeric, months or days) and `event` (0 = censored, 1 = event), with row names matching the sample IDs in `scores`.
+
+---
 
 ## Input format
 
@@ -168,11 +206,13 @@ Minimum required columns for pre-segmented data:
 |---|---|---|
 | `ID` | character | Sample identifier |
 | `chr` | integer | Chromosome (1–22) |
-| `loc.start` | integer | Segment start (bp) |
-| `loc.end` | integer | Segment end (bp) |
+| `loc.start` | integer | Segment start position (bp) |
+| `loc.end` | integer | Segment end position (bp) |
 | `seg.mean` | numeric | Log2 copy number ratio |
 
 Optional columns preserved throughout the pipeline: `BAF`, `purity`.
+
+---
 
 ## Citation
 
