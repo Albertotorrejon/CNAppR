@@ -484,12 +484,26 @@
   <div class="max-w-5xl mx-auto">
     <div class="text-center mb-10">
       <h2 class="text-headline-lg font-headline-lg text-on-background mb-4">Example Output</h2>
-      <p class="text-body-lg text-on-surface-variant">Copy number frequency profiles · TCGA-LIHC · n = 354 · hg19 · <code>compute_region_frequencies()</code> + <code>plot_frequency_profile()</code></p>
       <div class="w-24 h-1 bg-primary mx-auto rounded-full mt-4"></div>
     </div>
-    <img src="img/Plots_gifts.gif"
-         alt="Copy Number Frequency — TCGA-LIHC (n = 354)"
-         class="w-full h-auto">
+    <div class="flex flex-col gap-10">
+      <div>
+        <p class="text-body-sm text-on-surface-variant mb-3 text-center">
+          Copy number frequency · TCGA-LIHC · n = 354 · hg19 · <code>plot_frequency_profile()</code>
+        </p>
+        <img src="img/figure3_paper_cnappR_page-0001.jpg"
+             alt="Copy Number Frequency — TCGA-LIHC (n = 354)"
+             class="w-full h-auto">
+      </div>
+      <div>
+        <p class="text-body-sm text-on-surface-variant mb-3 text-center">
+          Genome-wide CNA profiles · Nanopore WGS · <code>plot_genome_wide_cna()</code>
+        </p>
+        <img src="img/nanopore_profiles.png"
+             alt="Genome-wide CNA profiles — Nanopore WGS"
+             class="w-full h-auto">
+      </div>
+    </div>
   </div>
 </section>
 

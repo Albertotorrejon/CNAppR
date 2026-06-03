@@ -23,96 +23,9 @@ BiocManager::install("BSgenome.Hsapiens.UCSC.hg19")
 BiocManager::install("BSgenome.Hsapiens.UCSC.hg38")
 ```
 
-## Quick run
-
-```r
-library(CNAppR)
-
-# Load a pre-segmented CNA table (your own file or the bundled example)
-data <- read_cna_file("path/to/your/segments.txt")
-
-# Example with the bundled LIHC dataset (354 samples)
-data <- read_cna_file(
-  system.file("models", "datos TFM",
-              "LIHC_354_cnvsegments_input_scores_nopurity.txt",
-              package = "CNAppR")
-)
-
-head(data)
-#>            ID chr loc.start   loc.end  seg.mean
-#> 1 TCGA-2Y-A9GS   1 205389460 205391959 -0.9772
-#> 2 TCGA-2Y-A9GS   1 205392408 247813706  0.1764
-```
-
-## Re-segmentation and scoring
-
-`resegment_sample()` processes one sample at a time. To run all samples in a dataset, loop over the sample IDs and collect results in a named list:
-
-```r
-sample_ids <- unique(data$ID)
-
-seg <- lapply(sample_ids, function(id) {
-  tryCatch(
-    resegment_sample(data, sample_id = id),
-    error = function(e) {
-      warning(id, ": ", conditionMessage(e))
-      NULL
-    }
-  )
-})
-names(seg) <- sample_ids
-seg <- Filter(Negate(is.null), seg)  # drop any samples that failed
-
-# Compute FCS, BCS and GCS scores
-scores <- calculate_cna_scores(seg)
-head(scores)
-#>              FCS BCS    GCS
-#> TCGA-2Y-A9GS   2   3  0.82
-#> TCGA-DD-A1QA   0   1 -0.54
-```
-
-## Visualisation
-
-CNAppR provides three plot functions for CNA profiles:
-
-```r
-# 1. Genome-wide frequency profile (gain/loss % per genomic region)
-arm_ref <- system.file("aux_files/segmented_files_hg19/autosomes_hg19_by_arms.txt",
-                       package = "CNAppR")
-freq <- compute_region_frequencies(seg, arm_ref, gain_thr = 0.23, loss_thr = -0.23)
-plot_frequency_profile(freq, title = "Copy Number Frequency | TCGA-LIHC")
-
-# 2. ASCAT-style genome-wide CNA profile for a single sample (bins + segments)
-plot_genome_wide_cna(bins_data, seg_data, sample_id = "sample_01",
-                     tumor_fraction = 0.48, ploidy = 1.96)
-
-# 3. Before / after re-segmentation comparison
-plot_segmentation(original_data, resegmented_data, sample_id = "sample_01")
-```
-
-![Copy Number Frequency — TCGA-LIHC (n = 354)](docs/img/figure3_paper_cnappR_page-0001.jpg)
-
-![GSEA — top 20 pathways by NES](docs/img/gsea_top_sample.png)
-
-![Genome-wide CNA profiles — Nanopore WGS](docs/img/nanopore_profiles.png)
-
-## Input format
-
-Minimum required columns for pre-segmented data:
-
-| Column | Type | Description |
-|---|---|---|
-| `ID` | character | Sample identifier |
-| `chr` | integer | Chromosome (1–22) |
-| `loc.start` | integer | Segment start (bp) |
-| `loc.end` | integer | Segment end (bp) |
-| `seg.mean` | numeric | Log2 copy number ratio |
-
-Optional columns preserved throughout the pipeline: `BAF`, `purity`.
-
 ## BAM pipeline
 
-For samples where you have aligned reads, use `read_bam_qc()` to count reads per bin and `run_bam_pipeline()` as a single-call convenience wrapper:
+For samples where you have aligned reads, use `run_bam_pipeline()` as a single-call convenience wrapper:
 
 ```r
 # WES — Illumina
@@ -134,11 +47,7 @@ seg_wgs <- run_bam_pipeline(
 )
 ```
 
-Both functions return a data frame in the same format as `resegment_sample()`, ready to be passed directly to `calculate_cna_scores()`.
-
 ### Panel of Normals (PoN)
-
-For cohort-level normalisation, build a PoN from a set of matched normal BAMs before running the tumour pipeline:
 
 ```r
 pon <- build_pon(
@@ -147,7 +56,6 @@ pon <- build_pon(
   experiment_type = "wes"
 )
 
-# Pass the PoN to read_bam_qc() or run_bam_pipeline()
 seg <- run_bam_pipeline("tumor.bam", sample_id = "sample_01",
                          sequencing_type = "illumina",
                          genome_build = "hg19", pon = pon)
@@ -155,19 +63,76 @@ seg <- run_bam_pipeline("tumor.bam", sample_id = "sample_01",
 
 ### Combining WES and WGS samples
 
-Use `harmonize_segments()` to merge segment tables from different platforms or sequencing types into a single cohort table:
-
 ```r
 seg_all <- harmonize_segments(
   segments_list = c(seg_wes_list, seg_wgs_list),
   source        = c(rep("wes", length(seg_wes_list)),
                     rep("wgs", length(seg_wgs_list)))
 )
-
-scores <- calculate_cna_scores(split(seg_all, seg_all$ID))
 ```
 
-## Pathway enrichment (optional)
+## Segmentation and scoring
+
+`resegment_sample()` re-segments and classifies CNA calls for one sample. Pass a pre-segmented table (from `read_cna_file()` or the BAM pipeline) and collect results across the cohort:
+
+```r
+library(CNAppR)
+
+# Load pre-segmented data
+data <- read_cna_file("path/to/segments.txt")
+
+# Example with the bundled LIHC dataset (354 samples)
+data <- read_cna_file(
+  system.file("models", "datos TFM",
+              "LIHC_354_cnvsegments_input_scores_nopurity.txt",
+              package = "CNAppR")
+)
+
+# Re-segment all samples
+sample_ids <- unique(data$ID)
+seg <- lapply(sample_ids, function(id) {
+  tryCatch(resegment_sample(data, sample_id = id),
+           error = function(e) { warning(id, ": ", conditionMessage(e)); NULL })
+})
+names(seg) <- sample_ids
+seg <- Filter(Negate(is.null), seg)
+
+# Compute FCS, BCS and GCS scores
+scores <- calculate_cna_scores(seg)
+head(scores)
+#>              FCS BCS    GCS
+#> TCGA-2Y-A9GS   2   3  0.82
+#> TCGA-DD-A1QA   0   1 -0.54
+```
+
+| Score | Description |
+|---|---|
+| **FCS** | Focal CNA Score — weighted sub-arm alteration burden |
+| **BCS** | Broad CNA Score — count of arm and chromosomal alterations |
+| **GCS** | Global CNA Score — normalised combination of FCS and BCS |
+
+## Visualisation
+
+```r
+# Genome-wide frequency profile (gain/loss % per genomic region)
+arm_ref <- system.file("aux_files/segmented_files_hg19/autosomes_hg19_by_arms.txt",
+                       package = "CNAppR")
+freq <- compute_region_frequencies(seg, arm_ref, gain_thr = 0.23, loss_thr = -0.23)
+plot_frequency_profile(freq, title = "Copy Number Frequency | TCGA-LIHC")
+
+# ASCAT-style genome-wide CNA profile (bins + segments)
+plot_genome_wide_cna(bins_data, seg_data, sample_id = "sample_01",
+                     tumor_fraction = 0.48, ploidy = 1.96)
+
+# Before / after re-segmentation comparison
+plot_segmentation(original_data, resegmented_data, sample_id = "sample_01")
+```
+
+![Copy Number Frequency — TCGA-LIHC (n = 354)](docs/img/figure3_paper_cnappR_page-0001.jpg)
+
+![Genome-wide CNA profiles — Nanopore WGS](docs/img/nanopore_profiles.png)
+
+## Pathway enrichment
 
 Requires `fgsea` and `msigdbr`:
 
@@ -175,7 +140,6 @@ Requires `fgsea` and `msigdbr`:
 BiocManager::install("fgsea")
 install.packages("msigdbr")
 
-sample_id <- sample_ids[1]
 annotated <- annotate_cna_genes(seg[[sample_id]], genome_build = "hg19")
 ranks     <- build_gene_ranks(annotated, score_col = "seg.mean")
 
@@ -184,7 +148,7 @@ gsea_res$plot         # NES barplot
 gsea_res$significant  # pathways with FDR < 0.05
 ```
 
-## Survival analysis (optional)
+## Survival analysis
 
 Requires `survival` and `survminer`:
 
@@ -198,13 +162,19 @@ res$pvalue  # log-rank p-value
 
 `surv_df` must have columns `time` (numeric, months/days) and `event` (0/1), with row names matching the sample IDs in `scores`.
 
-## CNA scores
+## Input format
 
-| Score | Description |
-|---|---|
-| **FCS** | Focal CNA Score — weighted sub-arm alteration burden |
-| **BCS** | Broad CNA Score — count of arm and chromosomal alterations |
-| **GCS** | Global CNA Score — normalised combination of FCS and BCS |
+Minimum required columns for pre-segmented data:
+
+| Column | Type | Description |
+|---|---|---|
+| `ID` | character | Sample identifier |
+| `chr` | integer | Chromosome (1–22) |
+| `loc.start` | integer | Segment start (bp) |
+| `loc.end` | integer | Segment end (bp) |
+| `seg.mean` | numeric | Log2 copy number ratio |
+
+Optional columns preserved throughout the pipeline: `BAF`, `purity`.
 
 ## Citation
 
