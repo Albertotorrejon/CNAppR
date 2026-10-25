@@ -41,11 +41,11 @@ the row names of scores.}
 If NULL (default), row names of survival_data are used for matching.}
 
 \item{n_groups}{Integer number of quantile groups (default 2 = median split:
-High vs Low). Use 4 for quartile groups (Q1–Q4).}
+High vs Low). Use 4 for quartile groups (Q1-Q4).}
 
 \item{group_labels}{Character vector of labels for the quantile groups, in
 order from lowest to highest score. Length must equal n_groups. Default
-NULL uses "Low"/"High" for n_groups = 2, or "Q1"…"Q4" for n_groups = 4.}
+NULL uses "Low"/"High" for n_groups = 2, or "Q1"..."Q4" for n_groups = 4.}
 
 \item{alpha}{Numeric significance level for the log-rank test (default 0.05).}
 

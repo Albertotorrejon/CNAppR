@@ -18,7 +18,7 @@ prepare_annotation_data(
 \item{annot_filepath}{Character path to annotation file (tab-separated,
 with header). Must contain a column named by sample_var.}
 
-\item{sep}{Character field separator for annotation file (default "\t").}
+\item{sep}{Character field separator for annotation file (default \code{"\t"}).}
 
 \item{dec}{Character decimal separator for annotation file (default ".").}
 

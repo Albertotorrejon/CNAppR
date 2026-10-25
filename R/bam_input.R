@@ -1,4 +1,4 @@
-# ─── CNAppR_segments S3 class ────────────────────────────────────────────────
+# --- CNAppR_segments S3 class ------------------------------------------------
 
 #' Constructor for CNAppR_segments
 #' @keywords internal
@@ -24,6 +24,8 @@ new_cnapp_segments <- function(segments,
 }
 
 #' Print method for CNAppR_segments
+#' @param x A \code{CNAppR_segments} object.
+#' @param ... Ignored.
 #' @export
 print.CNAppR_segments <- function(x, ...) {
   cat("CNAppR_segments\n")
@@ -65,7 +67,7 @@ as.data.frame.CNAppR_segments <- function(x, ...) x$segments
 }
 
 
-# ─── internal helpers ────────────────────────────────────────────────────────
+# --- internal helpers --------------------------------------------------------
 
 .check_pkg <- function(pkg) {
   if (!requireNamespace(pkg, quietly = TRUE))
@@ -106,7 +108,7 @@ as.data.frame.CNAppR_segments <- function(x, ...) x$segments
 #   "illumina_truseq", "twist_exome", "idt_xgen".
 # Falls back to the standard exome BED with a warning if the kit BED is
 # not bundled (e.g. because only the standard BED was shipped with the
-# package — kit-specific BEDs must be generated separately).
+# package - kit-specific BEDs must be generated separately).
 .kit_to_bed <- function(capture_kit, genome_build) {
   kit_map <- c(
     standard        = "standard_exome",
@@ -125,7 +127,7 @@ as.data.frame.CNAppR_segments <- function(x, ...) x$segments
   fpath <- system.file("extdata", fname, package = "CNAppR")
   if (nzchar(fpath) && file.exists(fpath)) return(fpath)
 
-  # Kit-specific BED not found — try the standard fallback
+  # Kit-specific BED not found - try the standard fallback
   if (capture_kit != "standard") {
     warning("BED for capture_kit='", capture_kit, "' (", fname, ") not found ",
             "in inst/extdata/. Falling back to standard exome BED.")
@@ -169,7 +171,7 @@ as.data.frame.CNAppR_segments <- function(x, ...) x$segments
     stop("No BED targets match the BAM chromosomes.\n",
          "BAM chromosomes: ", paste(head(bam_chrs, 5), collapse = ", "), "...")
 
-  # BED is 0-based half-open → GRanges is 1-based closed
+  # BED is 0-based half-open -> GRanges is 1-based closed
   GenomicRanges::GRanges(
     seqnames = bed$chr,
     ranges   = IRanges::IRanges(start = bed$start + 1L, end = bed$end)
@@ -213,7 +215,7 @@ as.data.frame.CNAppR_segments <- function(x, ...) x$segments
 }
 
 # HMMcopy-style LOESS GC correction: outlier filtering + reads ~ GC regression.
-# span: LOESS bandwidth — 0.03 (HMMcopy default) for Illumina short reads;
+# span: LOESS bandwidth - 0.03 (HMMcopy default) for Illumina short reads;
 #   use 0.75 for Nanopore to avoid overfitting noisier coverage profiles.
 .correct_gc_loess <- function(reads, gc, span = 0.03) {
   # Step 1: base filter matching HMMcopy (valid GC and bin with reads)
@@ -296,7 +298,7 @@ as.data.frame.CNAppR_segments <- function(x, ...) x$segments
     error = function(e) rep(NA_real_, length(gc))
   )
 
-  # Residual = log2(observed / GC-expected) — diploid bins cluster around 0
+  # Residual = log2(observed / GC-expected) - diploid bins cluster around 0
   log2_ratio <- log2_reads - predicted
   log2_ratio[is.na(reads) | reads == 0L] <- NA_real_
   log2_ratio
@@ -310,12 +312,12 @@ as.data.frame.CNAppR_segments <- function(x, ...) x$segments
 .split_target_bins <- function(targets_gr, bin_size = 1000L) {
   bin_size <- as.integer(bin_size)
 
-  # ── valr path ──────────────────────────────────────────────────────────────
+  # -- valr path --------------------------------------------------------------
   if (requireNamespace("valr", quietly = TRUE)) {
     result <- tryCatch({
       bed_df <- data.frame(
         chrom = as.character(GenomicRanges::seqnames(targets_gr)),
-        start = GenomicRanges::start(targets_gr) - 1L,   # GRanges→0-based
+        start = GenomicRanges::start(targets_gr) - 1L,   # GRanges->0-based
         end   = GenomicRanges::end(targets_gr),
         stringsAsFactors = FALSE
       )
@@ -329,7 +331,7 @@ as.data.frame.CNAppR_segments <- function(x, ...) x$segments
     if (!is.null(result)) return(result)
   }
 
-  # ── original loop fallback ─────────────────────────────────────────────────
+  # -- original loop fallback -------------------------------------------------
   starts   <- GenomicRanges::start(targets_gr)
   ends     <- GenomicRanges::end(targets_gr)
   chrs     <- as.character(GenomicRanges::seqnames(targets_gr))
@@ -368,8 +370,8 @@ as.data.frame.CNAppR_segments <- function(x, ...) x$segments
 
 # Computes antitarget bins for WES: genomic gaps between captured exons,
 # split into fixed-size windows.  Mirrors the CNVkit antitarget strategy.
-# min_size  — minimum gap width to keep as antitarget (default 10 kb)
-# bin_size  — split large gaps into bins of this size (default 100 kb)
+# min_size  - minimum gap width to keep as antitarget (default 10 kb)
+# bin_size  - split large gaps into bins of this size (default 100 kb)
 #
 # Strategy: try valr (bed_complement + bed_makewindows) first; fall back to
 # the original nested-loop implementation if valr is unavailable or errors.
@@ -379,7 +381,7 @@ as.data.frame.CNAppR_segments <- function(x, ...) x$segments
   min_size <- as.integer(min_size)
   bin_size <- as.integer(bin_size)
 
-  # ── valr path ──────────────────────────────────────────────────────────────
+  # -- valr path --------------------------------------------------------------
   if (requireNamespace("valr", quietly = TRUE)) {
     result <- tryCatch({
       genome_df <- data.frame(
@@ -389,7 +391,7 @@ as.data.frame.CNAppR_segments <- function(x, ...) x$segments
       )
       bed_df <- data.frame(
         chrom = as.character(GenomicRanges::seqnames(targets_gr)),
-        start = GenomicRanges::start(targets_gr) - 1L,   # GRanges→0-based
+        start = GenomicRanges::start(targets_gr) - 1L,   # GRanges->0-based
         end   = GenomicRanges::end(targets_gr),
         stringsAsFactors = FALSE
       )
@@ -410,7 +412,7 @@ as.data.frame.CNAppR_segments <- function(x, ...) x$segments
     if (!inherits(result, "valr_error_sentinel")) return(result)
   }
 
-  # ── original nested-loop fallback ─────────────────────────────────────────
+  # -- original nested-loop fallback -----------------------------------------
   targets_merged  <- GenomicRanges::reduce(targets_gr)
   antitarget_list <- list()
 
@@ -511,7 +513,7 @@ as.data.frame.CNAppR_segments <- function(x, ...) x$segments
   ifelse(grepl("^chr", x), x, paste0("chr", x))
 }
 
-# Normalizes chromosome names to integer (no prefix; X→23, Y→24)
+# Normalizes chromosome names to integer (no prefix; X->23, Y->24)
 .norm_chr_to_int <- function(x) {
   x <- gsub("^chr", "", as.character(x))
   x[x == "X"] <- "23"
@@ -531,7 +533,7 @@ as.data.frame.CNAppR_segments <- function(x, ...) x$segments
 }
 
 
-# ─── read_bam_qc ─────────────────────────────────────────────────────────────
+# --- read_bam_qc -------------------------------------------------------------
 
 #' Per-bin read counting from a BAM file
 #'
@@ -619,7 +621,7 @@ as.data.frame.CNAppR_segments <- function(x, ...) x$segments
 #' **WES vs WGS mode**
 #' Use experiment_type = "wes" for exome/targeted data and "wgs" for
 #' whole-genome. sequencing_type only affects mappability filtering and
-#' CBS smoothing — you can have Illumina WGS or Nanopore WES independently.
+#' CBS smoothing - you can have Illumina WGS or Nanopore WES independently.
 #'
 #' **Automatic standard exome BED**
 #' When experiment_type = "wes" and targets_bed = NULL, the function
@@ -627,7 +629,7 @@ as.data.frame.CNAppR_segments <- function(x, ...) x$segments
 #' (inst/extdata/standard_exome_hg19.bed or standard_exome_hg38.bed).
 #' Generate it once with: source("inst/scripts/generate_standard_exome_bed.R")
 #'
-#' **GC correction — WGS vs WES**
+#' **GC correction - WGS vs WES**
 #' For WGS, GC correction follows the HMMcopy approach: IQR-based outlier
 #' filtering + LOESS regression (span = 0.03) on raw read counts, then
 #' median normalisation. Pre-computed GC/mappability tables are used
@@ -649,12 +651,12 @@ as.data.frame.CNAppR_segments <- function(x, ...) x$segments
 #'   qc <- read_bam_qc("illumina_wgs.bam", bin_size = 5e5,
 #'                      sequencing_type = "illumina", experiment_type = "wgs")
 #'
-#'   # Illumina WES — standard exome BED used automatically
+#'   # Illumina WES - standard exome BED used automatically
 #'   qc <- read_bam_qc("sample_wes.bam",
 #'                      sequencing_type = "illumina", experiment_type = "wes",
 #'                      min_reads = 10L)
 #'
-#'   # Illumina WES — override with your own capture kit BED
+#'   # Illumina WES - override with your own capture kit BED
 #'   qc <- read_bam_qc("sample_wes.bam", targets_bed = "capture_kit.bed",
 #'                      sequencing_type = "illumina", experiment_type = "wes",
 #'                      min_reads = 10L)
@@ -678,7 +680,7 @@ read_bam_qc <- function(bam_path, bin_size = NULL, genome_build = "hg19",
                          pon = NULL) {
   sequencing_type <- match.arg(sequencing_type)
 
-  # Auto-detect experiment_type when not provided: presence of a BED or kit → WES
+  # Auto-detect experiment_type when not provided: presence of a BED or kit -> WES
   if (is.null(experiment_type)) {
     experiment_type <- if (!is.null(targets_bed) || !is.null(capture_kit)) "wes" else "wgs"
     message("  experiment_type auto-detected: '", experiment_type, "'.",
@@ -696,11 +698,11 @@ read_bam_qc <- function(bam_path, bin_size = NULL, genome_build = "hg19",
   if (is.null(gc_loess_span))
     gc_loess_span <- if (sequencing_type == "nanopore") 0.75 else 0.03
 
-  # split_targets = NULL → auto: TRUE for WES (best default), FALSE for WGS
+  # split_targets = NULL -> auto: TRUE for WES (best default), FALSE for WGS
   if (is.null(split_targets))
     split_targets <- (experiment_type == "wes")
 
-  # Resolve capture_kit → targets_bed (only when targets_bed not explicitly given)
+  # Resolve capture_kit -> targets_bed (only when targets_bed not explicitly given)
   if (!is.null(capture_kit) && is.null(targets_bed) && experiment_type == "wes")
     targets_bed <- .kit_to_bed(capture_kit, genome_build)
 
@@ -738,7 +740,7 @@ read_bam_qc <- function(bam_path, bin_size = NULL, genome_build = "hg19",
 
   # Chromosome sizes from the BAM header (no BSgenome dependency)
   header   <- Rsamtools::scanBamHeader(bam_path)[[1]]
-  chr_lens <- header$targets   # named integer: chr_name → length
+  chr_lens <- header$targets   # named integer: chr_name -> length
 
   # Keep only standard chromosomes (1-22, X, Y), with or without "chr" prefix
   keep     <- grepl("^(chr)?([0-9]{1,2}|X|Y)$", names(chr_lens))
@@ -837,7 +839,7 @@ read_bam_qc <- function(bam_path, bin_size = NULL, genome_build = "hg19",
   mappability <- NULL
   log2_ratio  <- NULL   # set directly for WES + gc_correction or normal_bam path
 
-  # ── Paired normal BAM: depth-normalised log2(tumour / normal) ──────────────
+  # -- Paired normal BAM: depth-normalised log2(tumour / normal) --------------
   if (!is.null(normal_bam)) {
     message("  Paired normal BAM: validating compatibility...")
     .check_bam_compatibility(bam_path, normal_bam)
@@ -853,19 +855,19 @@ read_bam_qc <- function(bam_path, bin_size = NULL, genome_build = "hg19",
 
     # Depth-normalised ratio: log2[(tumour+0.5)/med_t / (normal+0.5)/med_n]
     # pseudocount 0.5 avoids log(0) for zero-read bins while being negligible
-    # at typical WES coverage depths (>30×).
+    # at typical WES coverage depths (>30x).
     med_t <- stats::median(reads[reads > 0L], na.rm = TRUE)
     med_n <- stats::median(normal_reads[normal_reads > 0L], na.rm = TRUE)
     if (is.na(med_t) || med_t == 0)
-      stop("Tumour BAM has zero median coverage — check the BAM or the BED.")
+      stop("Tumour BAM has zero median coverage - check the BAM or the BED.")
     if (is.na(med_n) || med_n == 0)
-      stop("Normal BAM has zero median coverage — check the BAM or the BED.")
+      stop("Normal BAM has zero median coverage - check the BAM or the BED.")
 
     tumor_norm  <- (reads         + 0.5) / med_t
     normal_norm <- (normal_reads  + 0.5) / med_n
     log2_ratio  <- log2(tumor_norm / normal_norm)
 
-    # WES: zero-read tumour bins are uncaptured regions → NA
+    # WES: zero-read tumour bins are uncaptured regions -> NA
     if (experiment_type == "wes")
       log2_ratio[is.na(reads) | reads == 0L] <- NA_real_
 
@@ -926,7 +928,7 @@ read_bam_qc <- function(bam_path, bin_size = NULL, genome_build = "hg19",
     }
   }
 
-  # ── Median normalization (WGS, or WES without gc_correction, or LOESS fallback)
+  # -- Median normalization (WGS, or WES without gc_correction, or LOESS fallback)
   if (is.null(log2_ratio)) {
     # Minimum reads filter (target bins only in WES mode)
     if (min_reads > 0L) {
@@ -940,7 +942,7 @@ read_bam_qc <- function(bam_path, bin_size = NULL, genome_build = "hg19",
     median_reads <- stats::median(valid_reads)
 
     if (experiment_type == "wes") {
-      # WES: bins with 0 reads are uncaptured regions → NA instead of large negative log2
+      # WES: bins with 0 reads are uncaptured regions -> NA instead of large negative log2
       log2_ratio <- ifelse(is.na(reads) | reads == 0L, NA_real_,
                            log2(reads / median_reads))
     } else {
@@ -965,7 +967,7 @@ read_bam_qc <- function(bam_path, bin_size = NULL, genome_build = "hg19",
   if (exists("normal_reads", inherits = FALSE)) out$normal_reads <- normal_reads
   if (exists("reads_raw",    inherits = FALSE)) out$reads_raw    <- reads_raw
 
-  # ── PoN normalization ──────────────────────────────────────────────────────
+  # -- PoN normalization ------------------------------------------------------
   if (!is.null(pon)) {
     if (!is.list(pon) || is.null(pon$median_log2) || is.null(pon$bins))
       stop("pon must be a PoN object produced by build_pon().")
@@ -1000,7 +1002,7 @@ read_bam_qc <- function(bam_path, bin_size = NULL, genome_build = "hg19",
 }
 
 
-# ─── run_cbs_segmentation ────────────────────────────────────────────────────
+# --- run_cbs_segmentation ----------------------------------------------------
 
 #' CBS segmentation (Circular Binary Segmentation)
 #'
@@ -1087,7 +1089,7 @@ run_cbs_segmentation <- function(qc_data, sample_id,
 }
 
 
-# ─── build_pon ───────────────────────────────────────────────────────────────
+# --- build_pon ---------------------------------------------------------------
 
 #' Build a Panel of Normals (PoN) for copy-number normalisation
 #'
@@ -1096,12 +1098,12 @@ run_cbs_segmentation <- function(qc_data, sample_id,
 #' median log2 that represents the expected diploid baseline for the protocol.
 #' The resulting PoN object can be passed to read_bam_qc(pon = ...) or
 #' run_bam_pipeline(pon = ...) to remove systematic protocol-specific
-#' artefacts — wave patterns, GC bias, consistently poorly-captured exons —
+#' artefacts - wave patterns, GC bias, consistently poorly-captured exons -
 #' that are not removed by single-sample GC correction alone.
 #'
 #' @param bam_paths Character vector of paths to normal BAM files.  Each must
 #'   have a corresponding .bai index.  Use at least 5 normals for stable
-#'   medians; 10–20 is typical.
+#'   medians; 10-20 is typical.
 #' @param genome_build Character "hg19" or "hg38" (default "hg19").
 #' @param sequencing_type Character "illumina" or "nanopore".
 #' @param experiment_type Character "wgs" or "wes".
@@ -1125,7 +1127,7 @@ run_cbs_segmentation <- function(qc_data, sample_id,
 #'     \item{median_log2}{Numeric vector, per-bin median log2 across normals}
 #'     \item{n_samples}{Number of normal BAMs processed}
 #'     \item{genome_build, experiment_type, sequencing_type, gc_correction}{
-#'       Parameters used — must match the tumour call}
+#'       Parameters used - must match the tumour call}
 #'     \item{created}{POSIXct timestamp}
 #'   }
 #'
@@ -1146,6 +1148,7 @@ run_cbs_segmentation <- function(qc_data, sample_id,
 #'                       pon             = pon)
 #' }
 #'
+#' @inheritParams read_bam_qc
 #' @export
 build_pon <- function(bam_paths,
                       genome_build        = "hg19",
@@ -1235,9 +1238,9 @@ build_pon <- function(bam_paths,
 }
 
 
-# ─── run_bam_pipeline ────────────────────────────────────────────────────────
+# --- run_bam_pipeline --------------------------------------------------------
 
-#' Coverage-aware BAM → segmentation → CNAppR pipeline
+#' Coverage-aware BAM -> segmentation -> CNAppR pipeline
 #'
 #' Convenience wrapper that reads a BAM file, estimates coverage, and
 #' automatically routes to the appropriate segmentation method:
@@ -1300,7 +1303,7 @@ build_pon <- function(bam_paths,
 #'
 #' @examples
 #' \dontrun{
-#'   # Auto-routing — IchorCNA for LP-WGS, CBS for high-coverage
+#'   # Auto-routing - IchorCNA for LP-WGS, CBS for high-coverage
 #'   result <- run_bam_pipeline(
 #'     "sample.bam",
 #'     sample_id       = "sample_01",
@@ -1328,7 +1331,7 @@ build_pon <- function(bam_paths,
 #'     genome_build    = "hg38"
 #'   )
 #'
-#'   # WES sample — CBS with capture kit BED
+#'   # WES sample - CBS with capture kit BED
 #'   result <- run_bam_pipeline(
 #'     "sample_wes.bam",
 #'     sample_id       = "sample_02",
@@ -1339,6 +1342,9 @@ build_pon <- function(bam_paths,
 #'   )
 #' }
 #'
+#' @param normal_init Numeric vector of initial normal-contamination values
+#'   tried by the IchorCNA HMM-EM (default \code{c(0.2, 0.4, 0.5, 0.6, 0.8)}).
+#' @inheritParams read_bam_qc
 #' @export
 run_bam_pipeline <- function(bam_path,
                               sample_id,
@@ -1409,7 +1415,7 @@ run_bam_pipeline <- function(bam_path,
   if (method == "auto")
     message("  Coverage ", round(coverage, 2), "x ",
             if (chosen == "ichorCNA") "<" else ">=",
-            " threshold ", coverage_threshold, "x → ", chosen)
+            " threshold ", coverage_threshold, "x -> ", chosen)
 
   if (chosen == "CBS") {
     message("run_bam_pipeline [2/3]: CBS segmentation (", sequencing_type, ")...")

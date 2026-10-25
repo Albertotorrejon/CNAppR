@@ -10,9 +10,10 @@
 \item{score}{Numeric vector of scores.}
 }
 \value{
-Numeric vector (normalized or original if all zeros).
+Numeric vector (normalized, or zeros if all values are identical or
+  fewer than 2 samples).
 }
 \description{
-Standardizes a score vector (mean 0, sd 1) if not all zeros.
+Standardizes a score vector (mean 0, sd 1) if not all identical.
 }
 \keyword{internal}

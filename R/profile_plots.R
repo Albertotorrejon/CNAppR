@@ -256,7 +256,7 @@ plot_genome_wide_cna <- function(bins_data,
                                   ylim           = c(-2, 2),
                                   call_colors    = NULL) {
 
-  # ── color scheme ────────────────────────────────────────────────
+  # -- color scheme ------------------------------------------------
   cna_colors <- c(
     NEUT   = "steelblue",
     HETD   = "forestgreen",
@@ -269,7 +269,7 @@ plot_genome_wide_cna <- function(bins_data,
   )
   if (!is.null(call_colors)) cna_colors[names(call_colors)] <- call_colors
 
-  # ── cytoband cumulative positions (autosomes only) ───────────────
+  # -- cytoband cumulative positions (autosomes only) ---------------
   l4 <- get_cytobands_data("level4")
   l4 <- l4[order(l4$chr), ]
   l4 <- l4[l4$chr <= 22, ]
@@ -283,7 +283,7 @@ plot_genome_wide_cna <- function(bins_data,
 
   norm_chr <- function(x) suppressWarnings(as.integer(gsub("^chr", "", as.character(x))))
 
-  # ── prepare bins ─────────────────────────────────────────────────
+  # -- prepare bins -------------------------------------------------
   bins_data$chr_int <- norm_chr(bins_data$chr)
   bins_data <- bins_data[!is.na(bins_data$chr_int) & bins_data$chr_int <= 22, ]
   bins_data <- bins_data[!is.na(bins_data$log2_ratio), ]
@@ -292,7 +292,7 @@ plot_genome_wide_cna <- function(bins_data,
   # Clamp slightly outside ylim so clipped dots still appear at the boundary
   bins_data$y_plot <- pmax(pmin(bins_data$log2_ratio, ylim[2] + 0.25), ylim[1] - 0.25)
 
-  # ── prepare segments ─────────────────────────────────────────────
+  # -- prepare segments ---------------------------------------------
   seg_data$chr_int <- norm_chr(seg_data$chr)
   seg_data <- seg_data[!is.na(seg_data$chr_int) & seg_data$chr_int <= 22, ]
 
@@ -311,7 +311,7 @@ plot_genome_wide_cna <- function(bins_data,
     seg_data$call[!is.na(type_col) & type_col == "Loss" & seg_data$y <= -1.5] <- "HOMD"
   }
 
-  # ── assign CNA call to each bin (by overlapping segment) ─────────
+  # -- assign CNA call to each bin (by overlapping segment) ---------
   bins_data$call <- "NEUT"
   for (c in unique(bins_data$chr_int)) {
     idx_b <- which(bins_data$chr_int == c)
@@ -324,7 +324,7 @@ plot_genome_wide_cna <- function(bins_data,
     }
   }
 
-  # ── chromosome label colors (dominant call per chromosome) ────────
+  # -- chromosome label colors (dominant call per chromosome) --------
   chr_mids      <- l4$cum_start + l4$length / 2
   chr_label_col <- vapply(l4$chr, function(c) {
     sc <- seg_data[seg_data$chr_int == c, , drop = FALSE]
@@ -337,7 +337,7 @@ plot_genome_wide_cna <- function(bins_data,
     "steelblue"
   }, character(1L))
 
-  # ── title ─────────────────────────────────────────────────────────
+  # -- title ---------------------------------------------------------
   sub_parts <- character(0)
   if (!is.null(tumor_fraction))
     sub_parts <- c(sub_parts, paste0("Tumor Fraction: ", round(tumor_fraction, 4)))
@@ -351,7 +351,7 @@ plot_genome_wide_cna <- function(bins_data,
 
   x_max <- max(l4$cum_start + l4$length)
 
-  # ── build plot ───────────────────────────────────────────────────
+  # -- build plot ---------------------------------------------------
   p <- ggplot2::ggplot() +
     ggplot2::geom_point(
       data = bins_data,
@@ -413,7 +413,7 @@ plot_genome_wide_cna <- function(bins_data,
 #'
 #' @param freq_df Data frame output of \code{compute_region_frequencies()}.
 #'   Required columns: \code{chr}, \code{start}, \code{end},
-#'   \code{gain_freq}, \code{loss_freq} (all as proportions 0–1).
+#'   \code{gain_freq}, \code{loss_freq} (all as proportions 0-1).
 #' @param title Character plot title.
 #' @param gain_color Character hex/name color for gain bars (default red).
 #' @param loss_color Character hex/name color for loss bars (default blue).
@@ -422,7 +422,7 @@ plot_genome_wide_cna <- function(bins_data,
 #' @return A ggplot2 object.
 #'
 #' @details
-#' The Y axis shows percentage of samples (0–100\%). Chromosome boundaries
+#' The Y axis shows percentage of samples (0-100\%). Chromosome boundaries
 #' are drawn as dashed vertical lines; labels are placed below the axis.
 #' Works with any reference granularity: arm-level (44 bars), cytoband
 #' (~800 bars), or WES targets (246k tiny bars, rendering as a smooth curve).
@@ -441,7 +441,7 @@ plot_frequency_profile <- function(freq_df,
                                    loss_color = "#4575b4",
                                    alpha      = 0.85) {
 
-  # ── normalise chr column ─────────────────────────────────────────────
+  # -- normalise chr column ---------------------------------------------
   freq_df$chr_int <- suppressWarnings(
     as.integer(gsub("^chr", "", as.character(freq_df$chr)))
   )
@@ -449,7 +449,7 @@ plot_frequency_profile <- function(freq_df,
   freq_df <- freq_df[order(freq_df$chr_int, freq_df$start), ]
   if (nrow(freq_df) == 0L) stop("No autosomal regions found in freq_df.")
 
-  # ── cumulative genomic offsets ───────────────────────────────────────
+  # -- cumulative genomic offsets ---------------------------------------
   chrs      <- sort(unique(freq_df$chr_int))
   chr_max   <- vapply(chrs, function(c) max(freq_df$end[freq_df$chr_int == c]),
                       numeric(1L))
@@ -469,7 +469,7 @@ plot_frequency_profile <- function(freq_df,
 
   x_max <- max(chr_bounds)
 
-  # ── build plot ───────────────────────────────────────────────────────
+  # -- build plot -------------------------------------------------------
   p <- ggplot2::ggplot(freq_df) +
     ggplot2::geom_rect(
       ggplot2::aes(xmin = .data$x_start, xmax = .data$x_end,

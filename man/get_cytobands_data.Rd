@@ -7,10 +7,11 @@
 get_cytobands_data(level = "level3")
 }
 \arguments{
-\item{level}{Character "level3" or "level4" (default "level3").}
+\item{level}{Character "level3" (p/q arm definitions) or "level4"
+(full chromosome lengths). Default "level3".}
 }
 \value{
-Data frame with cytoband information (chr, start, end, label, length).
+Data frame with columns: chr, start, end, label, length.
 }
 \description{
 Returns reference cytoband data (level 3 or level 4) for a given genome build.

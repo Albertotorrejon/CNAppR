@@ -20,7 +20,7 @@ read_bam_qc(
   use_antitarget = FALSE,
   antitarget_bin_size = 100000L,
   split_targets = NULL,
-  target_bin_size = 267L,
+  target_bin_size = 1000L,
   gc_loess_span = NULL,
   pon = NULL
 )
@@ -96,8 +96,10 @@ more data points, improving GC correction accuracy.
 NULL (default) means automatic: TRUE for WES, FALSE for WGS.}
 
 \item{target_bin_size}{Integer target sub-bin size in bp when
-split_targets = TRUE (default 267, the CNVkit default).  Exons smaller
-than this value are kept as single bins.}
+split_targets = TRUE (default 1000 bp).  Exons smaller than this value
+are kept as single bins. The original CNVkit default (267 bp) creates
+exon-level bins and causes CBS over-segmentation (~2500 segments) in WES;
+1000 bp gives a more balanced segmentation comparable to CNVkit's output.}
 
 \item{gc_loess_span}{Numeric LOESS bandwidth for WGS GC correction.
 Default NULL = auto: 0.03 for Illumina (HMMcopy default, tight fit);
@@ -127,7 +129,7 @@ Requires: Rsamtools, GenomicRanges (BiocManager::install(...))
 **WES vs WGS mode**
 Use experiment_type = "wes" for exome/targeted data and "wgs" for
 whole-genome. sequencing_type only affects mappability filtering and
-CBS smoothing — you can have Illumina WGS or Nanopore WES independently.
+CBS smoothing - you can have Illumina WGS or Nanopore WES independently.
 
 **Automatic standard exome BED**
 When experiment_type = "wes" and targets_bed = NULL, the function
@@ -135,7 +137,7 @@ automatically uses the standard exome BED bundled in the package
 (inst/extdata/standard_exome_hg19.bed or standard_exome_hg38.bed).
 Generate it once with: source("inst/scripts/generate_standard_exome_bed.R")
 
-**GC correction — WGS vs WES**
+**GC correction - WGS vs WES**
 For WGS, GC correction follows the HMMcopy approach: IQR-based outlier
 filtering + LOESS regression (span = 0.03) on raw read counts, then
 median normalisation. Pre-computed GC/mappability tables are used
@@ -157,12 +159,12 @@ robust to tumour-wide ploidy shifts that would bias median normalisation.
   qc <- read_bam_qc("illumina_wgs.bam", bin_size = 5e5,
                      sequencing_type = "illumina", experiment_type = "wgs")
 
-  # Illumina WES — standard exome BED used automatically
+  # Illumina WES - standard exome BED used automatically
   qc <- read_bam_qc("sample_wes.bam",
                      sequencing_type = "illumina", experiment_type = "wes",
                      min_reads = 10L)
 
-  # Illumina WES — override with your own capture kit BED
+  # Illumina WES - override with your own capture kit BED
   qc <- read_bam_qc("sample_wes.bam", targets_bed = "capture_kit.bed",
                      sequencing_type = "illumina", experiment_type = "wes",
                      min_reads = 10L)

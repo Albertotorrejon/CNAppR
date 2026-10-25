@@ -73,10 +73,10 @@ Requires fgsea (Bioconductor) and msigdbr (CRAN):
 
 **Recommended pipeline:**
 \enumerate{
-  \item resegment_sample() → per-sample CNA segments
-  \item annotate_cna_genes() → add gene symbols per segment
-  \item build_gene_ranks() → named numeric rank vector
-  \item run_gsea() → enrichment results + plot
+  \item resegment_sample() -> per-sample CNA segments
+  \item annotate_cna_genes() -> add gene symbols per segment
+  \item build_gene_ranks() -> named numeric rank vector
+  \item run_gsea() -> enrichment results + plot
 }
 
 **Stratified analysis:** pass gene_ranks as a named list (one vector per

@@ -19,10 +19,10 @@
 #' @param sample_col Character name of the sample ID column in survival_data.
 #'   If NULL (default), row names of survival_data are used for matching.
 #' @param n_groups Integer number of quantile groups (default 2 = median split:
-#'   High vs Low). Use 4 for quartile groups (Q1–Q4).
+#'   High vs Low). Use 4 for quartile groups (Q1-Q4).
 #' @param group_labels Character vector of labels for the quantile groups, in
 #'   order from lowest to highest score. Length must equal n_groups. Default
-#'   NULL uses "Low"/"High" for n_groups = 2, or "Q1"…"Q4" for n_groups = 4.
+#'   NULL uses "Low"/"High" for n_groups = 2, or "Q1"..."Q4" for n_groups = 4.
 #' @param alpha Numeric significance level for the log-rank test (default 0.05).
 #' @param plot Logical, generate a Kaplan-Meier plot with survminer
 #'   (default TRUE).
@@ -97,12 +97,12 @@ run_survival_analysis <- function(scores,
   if (n_groups < 2L)
     stop("n_groups must be >= 2.")
 
-  # ── validate score column ────────────────────────────────────────────────
+  # -- validate score column ------------------------------------------------
   if (!score_var %in% colnames(scores))
     stop("score_var '", score_var, "' not found in scores data frame. ",
          "Available: ", paste(colnames(scores), collapse = ", "))
 
-  # ── resolve sample IDs in survival_data ─────────────────────────────────
+  # -- resolve sample IDs in survival_data ---------------------------------
   if (!is.null(sample_col)) {
     if (!sample_col %in% colnames(survival_data))
       stop("sample_col '", sample_col, "' not found in survival_data.")
@@ -114,17 +114,17 @@ run_survival_analysis <- function(scores,
            "Provide sample IDs via the sample_col argument.")
   }
 
-  # ── validate time and event columns ─────────────────────────────────────
+  # -- validate time and event columns -------------------------------------
   for (col in c(time_col, event_col)) {
     if (!col %in% colnames(survival_data))
       stop("Column '", col, "' not found in survival_data.")
   }
 
-  # ── validate clinical_var ────────────────────────────────────────────────
+  # -- validate clinical_var ------------------------------------------------
   if (!is.null(clinical_var) && !clinical_var %in% colnames(survival_data))
     stop("clinical_var '", clinical_var, "' not found in survival_data.")
 
-  # ── build group labels ───────────────────────────────────────────────────
+  # -- build group labels ---------------------------------------------------
   if (is.null(group_labels)) {
     group_labels <- if (n_groups == 2L) {
       c("Low", "High")
@@ -137,7 +137,7 @@ run_survival_analysis <- function(scores,
   if (length(group_labels) != n_groups)
     stop("group_labels must have length equal to n_groups (", n_groups, ").")
 
-  # ── match samples ────────────────────────────────────────────────────────
+  # -- match samples --------------------------------------------------------
   score_ids  <- rownames(scores)
   common_ids <- intersect(score_ids, surv_ids)
 
@@ -173,7 +173,7 @@ run_survival_analysis <- function(scores,
   if (nrow(adf) < 4L)
     stop("Too few samples after filtering (need >= 4).")
 
-  # ── quantile-based grouping ──────────────────────────────────────────────
+  # -- quantile-based grouping ----------------------------------------------
   breaks <- stats::quantile(adf$score,
                             probs = seq(0, 1, length.out = n_groups + 1L),
                             na.rm = TRUE)
@@ -183,7 +183,7 @@ run_survival_analysis <- function(scores,
   colnames(adf)[colnames(adf) == "score_group"] <- paste0(score_var, "_group")
   group_col <- paste0(score_var, "_group")
 
-  # ── analysis function (single stratum or per-level) ──────────────────────
+  # -- analysis function (single stratum or per-level) ----------------------
   .run_km <- function(df) {
     surv_obj <- survival::Surv(time = df$time, event = df$event)
     grp_fac  <- df[[group_col]]
@@ -194,7 +194,7 @@ run_survival_analysis <- function(scores,
     list(fit = fit, logrank = lr_test, pvalue = pval)
   }
 
-  # ── run analysis ─────────────────────────────────────────────────────────
+  # -- run analysis ---------------------------------------------------------
   if (is.null(clinical_var)) {
     km <- .run_km(adf)
     result <- list(
@@ -215,7 +215,7 @@ run_survival_analysis <- function(scores,
         conf.int      = FALSE,
         palette       = palette,
         legend.title  = score_var,
-        title         = sprintf("KM — %s (%d groups, log-rank %s)",
+        title         = sprintf("KM - %s (%d groups, log-rank %s)",
                                 score_var, n_groups, pval_str),
         xlab          = "Time",
         ylab          = "Survival probability",
@@ -262,7 +262,7 @@ run_survival_analysis <- function(scores,
         conf.int     = FALSE,
         palette      = palette,
         legend.title = score_var,
-        title        = sprintf("KM — %s, %s = %s (log-rank %s)",
+        title        = sprintf("KM - %s, %s = %s (log-rank %s)",
                                score_var, clinical_var, first_lv, pval_str),
         xlab         = "Time",
         ylab         = "Survival probability",

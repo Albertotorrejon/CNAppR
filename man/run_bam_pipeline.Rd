@@ -2,17 +2,19 @@
 % Please edit documentation in R/bam_input.R
 \name{run_bam_pipeline}
 \alias{run_bam_pipeline}
-\title{Full BAM → CBS → CNAppR pipeline}
+\title{Coverage-aware BAM -> segmentation -> CNAppR pipeline}
 \usage{
 run_bam_pipeline(
   bam_path,
   sample_id,
+  method = c("auto", "CBS", "ichorCNA"),
+  coverage_threshold = 10,
   sequencing_type = c("illumina", "nanopore"),
   experiment_type = NULL,
   bin_size = NULL,
-  genome_build = "hg19",
+  genome_build = "hg38",
   min_mapq = 20L,
-  gc_correction = FALSE,
+  gc_correction = TRUE,
   alpha = 0.01,
   nperm = 10000L,
   targets_bed = NULL,
@@ -22,79 +24,179 @@ run_bam_pipeline(
   use_antitarget = FALSE,
   antitarget_bin_size = 100000L,
   split_targets = NULL,
-  target_bin_size = 267L,
+  target_bin_size = 1000L,
   gc_loess_span = NULL,
   pon = NULL,
+  read_length = 150L,
+  maxiter = 50L,
+  estimateNormal = TRUE,
+  estimatePloidy = TRUE,
+  normal_init = c(0.2, 0.4, 0.5, 0.6, 0.8),
   ...
 )
 }
 \arguments{
-\item{bam_path}{Character path to the indexed BAM file.}
+\item{bam_path}{Character path to the indexed BAM file (.bai required).}
 
 \item{sample_id}{Character sample identifier.}
+
+\item{method}{Character one of \code{"auto"} (default), \code{"CBS"}, or
+\code{"ichorCNA"}. \code{"auto"} selects based on coverage vs
+\code{coverage_threshold}; \code{"CBS"} or \code{"ichorCNA"} forces the
+method regardless of coverage.}
+
+\item{coverage_threshold}{Numeric threshold (default 10). Samples with
+estimated coverage below this value are routed to IchorCNA; samples at or
+above are routed to CBS. Only used when \code{method = "auto"}.}
 
 \item{sequencing_type}{Character "illumina" or "nanopore".}
 
 \item{experiment_type}{Character "wgs" or "wes", or NULL (default). Controls
 whether bins come from fixed genome-wide windows ("wgs") or a capture kit
 BED ("wes"). When NULL, auto-detected: "wes" if targets_bed or capture_kit
-is provided, "wgs" otherwise. Independent of sequencing_type.}
+is provided, "wgs" otherwise.}
 
 \item{bin_size}{Integer bin size in bp for read counting.
 Default 500000 (Illumina) or 1000000 (Nanopore).}
 
-\item{genome_build}{Character "hg19" or "hg38" (default "hg19").}
+\item{genome_build}{Character "hg19" or "hg38" (default "hg38").}
 
 \item{min_mapq}{Integer minimum mapping quality (default 20).}
 
-\item{alpha}{Numeric CBS significance level (default 0.01).}
+\item{gc_correction}{Logical, apply GC correction (default TRUE). Required
+for reliable IchorCNA results.}
 
-\item{nperm}{Integer CBS permutations (default 10000).}
+\item{alpha}{Numeric CBS significance level (default 0.01). CBS only.}
+
+\item{nperm}{Integer CBS permutations (default 10000). CBS only.}
 
 \item{targets_bed}{Character path to a BED file with capture kit regions.
-Only used when experiment_type = "wes". When NULL, the standard exome BED
-bundled in the package is used automatically. Default NULL.}
+Only used when experiment_type = "wes". Default NULL.}
 
-\item{min_reads}{Integer minimum number of reads for a bin to be considered
-valid. Bins below this threshold are set to NA. Recommended min_reads = 10
-for WES (default 0, no filtering).}
+\item{capture_kit}{Character name of the capture kit used for WES.
+When provided, automatically selects the corresponding BED file bundled
+in inst/extdata/ for the specified genome_build. Supported values:
+"standard" (default), "agilent_v7", "agilent_v6", "illumina_truseq",
+"twist_exome", "idt_xgen". If the kit-specific BED is not bundled,
+falls back to the standard exome BED with a warning. Ignored when
+targets_bed is explicitly provided. Default NULL.}
 
-\item{pon}{Optional Panel of Normals object produced by build_pon().
-Passed through to read_bam_qc(). Default NULL.}
+\item{normal_bam}{Character path to a matched normal BAM file (optional).
+When provided, read counts are depth-normalised and the log2 ratio is
+computed as log2(tumour/normal), removing systematic capture bias without
+needing BSgenome or a Panel of Normals. gc_correction and pon are ignored
+when normal_bam is supplied. The normal BAM must have a .bai index and
+must have been aligned to the same reference genome as the tumour BAM.
+Default NULL (no paired normal).}
 
-\item{...}{Additional arguments passed to resegment_sample()
+\item{min_reads}{Integer minimum number of reads per bin (default 0).}
+
+\item{use_antitarget}{Logical, only used when experiment_type = "wes".
+If TRUE, computes off-target bins (complement of the capture kit regions)
+and includes them in read counting and GC-LOESS normalisation, mirroring
+CNVkit's antitarget strategy.  Improves detection in gene-poor regions.
+Requires gc_correction = TRUE (BSgenome).  Default FALSE.}
+
+\item{antitarget_bin_size}{Integer bin size for antitarget regions in bp
+(default 100000 = 100 kb).  Large gaps are split into bins of this size.}
+
+\item{split_targets}{Logical or NULL. Only used when experiment_type = "wes".
+If TRUE, splits each capture region into sub-bins of approximately
+target_bin_size bp, mirroring CNVkit's \code{target --split} command.
+This increases resolution within large exons and gives the GC-LOESS fit
+more data points, improving GC correction accuracy.
+NULL (default) means automatic: TRUE for WES, FALSE for WGS.}
+
+\item{target_bin_size}{Integer target sub-bin size in bp when
+split_targets = TRUE (default 1000 bp).  Exons smaller than this value
+are kept as single bins. The original CNVkit default (267 bp) creates
+exon-level bins and causes CBS over-segmentation (~2500 segments) in WES;
+1000 bp gives a more balanced segmentation comparable to CNVkit's output.}
+
+\item{gc_loess_span}{Numeric LOESS bandwidth for WGS GC correction.
+Default NULL = auto: 0.03 for Illumina (HMMcopy default, tight fit);
+0.75 for Nanopore (smoother fit, less prone to overfitting noisy
+low-pass coverage). Override with any value in (0, 1].}
+
+\item{pon}{Optional Panel of Normals object from \code{build_pon()}.
+Default NULL.}
+
+\item{read_length}{Integer assumed read length for coverage estimation
+(default 150 bp).}
+
+\item{maxiter}{Integer maximum EM iterations for IchorCNA (default 50).
+IchorCNA only.}
+
+\item{estimateNormal}{Logical, estimate normal contamination (default TRUE).
+IchorCNA only.}
+
+\item{estimatePloidy}{Logical, estimate tumour ploidy (default TRUE).
+IchorCNA only.}
+
+\item{normal_init}{Numeric vector of initial normal-contamination values
+tried by the IchorCNA HMM-EM (default \code{c(0.2, 0.4, 0.5, 0.6, 0.8)}).}
+
+\item{...}{Additional arguments passed to \code{resegment_sample()}
 (e.g. purity, acrocentric, skip_resegmentation).}
 }
 \value{
-Output of resegment_sample(): data frame with classified CNA
-  segments (chromosomal, arm, focal, diploid).
+A \code{CNAppR_segments} object with fields:
+  \describe{
+    \item{segments}{Data frame of classified CNA segments (CNAppR format).}
+    \item{scores}{Data frame with FCS, BCS and GCS scores for the sample.}
+    \item{method}{\code{"CBS"} or \code{"ichorCNA"}.}
+    \item{coverage}{Estimated mean coverage.}
+    \item{tumor_fraction}{Estimated tumor fraction (IchorCNA only; \code{NA}
+      for CBS).}
+    \item{ploidy}{Estimated tumour ploidy (IchorCNA only; \code{NA} for CBS).}
+    \item{metadata}{Named list: sample_id, genome_build, bin_size, qc_data.}
+  }
+  Use \code{as.data.frame(result)} to extract the segment table for use with
+  \code{plot_genome_wide_cna()}, etc.
 }
 \description{
-Convenience wrapper that runs read_bam_qc(), run_cbs_segmentation()
-and resegment_sample() in a single call.
+Convenience wrapper that reads a BAM file, estimates coverage, and
+automatically routes to the appropriate segmentation method:
+CBS (Circular Binary Segmentation) for high-coverage samples
+(coverage >= coverage_threshold) or IchorCNA (HMM + tumor fraction
+estimation) for low-coverage / liquid biopsy samples
+(coverage < coverage_threshold). Returns a \code{CNAppR_segments} object.
 }
 \examples{
 \dontrun{
-  # Nanopore low-pass WGS
+  # Auto-routing - IchorCNA for LP-WGS, CBS for high-coverage
   result <- run_bam_pipeline(
-    "sample_nanopore.bam",
+    "sample.bam",
     sample_id       = "sample_01",
     sequencing_type = "nanopore",
-    bin_size        = 1000000
+    genome_build    = "hg38"
+  )
+  cat("Method:", result$method, "  TF:", result$tumor_fraction, "\n")
+  seg_df <- as.data.frame(result)
+
+  # Force IchorCNA for a liquid biopsy sample
+  result <- run_bam_pipeline(
+    "ctdna.bam",
+    sample_id       = "LB01",
+    method          = "ichorCNA",
+    sequencing_type = "nanopore",
+    genome_build    = "hg38"
   )
 
-  # Illumina WES — standard exome BED used automatically
+  # Force CBS for a high-coverage WGS sample
   result <- run_bam_pipeline(
-    "sample_wes.bam",
-    sample_id       = "sample_02",
+    "tumor_wgs.bam",
+    sample_id       = "ST01",
+    method          = "CBS",
     sequencing_type = "illumina",
-    min_reads       = 10L
+    genome_build    = "hg38"
   )
 
-  # Illumina WES — override with your own capture kit BED
+  # WES sample - CBS with capture kit BED
   result <- run_bam_pipeline(
     "sample_wes.bam",
     sample_id       = "sample_02",
+    method          = "CBS",
     sequencing_type = "illumina",
     targets_bed     = "capture_kit.bed",
     min_reads       = 10L

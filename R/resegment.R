@@ -1,7 +1,7 @@
 #' Re-segment Copy Number Data
 #'
 #' Processes a single sample from a multi-sample CNA table. To process an
-#' entire cohort, iterate over sample IDs with \code{lapply()} — see Details.
+#' entire cohort, iterate over sample IDs with \code{lapply()} - see Details.
 #'
 #' @param data Data frame with columns: ID, chr, loc.start, loc.end, seg.mean, [BAF, purity].
 #' @param sample_id Character. A \strong{single} sample identifier present in
@@ -45,7 +45,7 @@
 #'
 #' \code{resegment_sample()} is designed to process one sample per call so
 #' that a runtime error in one sample does not abort the rest of the cohort.
-#' Passing a vector to \code{sample_id} will fail — the function internally
+#' Passing a vector to \code{sample_id} will fail - the function internally
 #' filters \code{data[data$ID == sample_id, ]} and expects exactly one unique
 #' identifier.
 #'
@@ -118,7 +118,7 @@ resegment_sample <- function(data,
 
   sample_type <- match.arg(sample_type)
 
-  # ── Resolve thresholds ────────────────────────────────────────────────────
+  # -- Resolve thresholds ----------------------------------------------------
   if (!is.null(purity)) {
     # Purity-aware: threshold = 1/3 of minimum detectable heterozygous deletion
     purity <- min(max(purity, 0.01), 0.99)
@@ -476,7 +476,7 @@ resegment_sample <- function(data,
 
   }
 
-  # Segments that were skipped early (e.g. Y chr, invalid chr) remain NA —
+  # Segments that were skipped early (e.g. Y chr, invalid chr) remain NA -
   # they are regions smoothed back to diploid by the resegmentation algorithm.
   na_cls <- is.na(filt$classified)
   if (any(na_cls)) {
@@ -491,7 +491,7 @@ resegment_sample <- function(data,
 }
 
 
-# ─── harmonize_segments ───────────────────────────────────────────────────────
+# --- harmonize_segments -------------------------------------------------------
 
 #' Harmonize CNA segment tables from multiple samples or platforms
 #'
@@ -505,7 +505,7 @@ resegment_sample <- function(data,
 #'   \code{loc.end}, \code{seg.mean}. Typically the output of
 #'   \code{resegment_sample()} or \code{run_cbs_segmentation()}.
 #' @param source Character vector of length 1 or \code{length(segments_list)}.
-#'   Label for each data frame's origin — e.g. \code{"wes"}, \code{"wgs"},
+#'   Label for each data frame's origin - e.g. \code{"wes"}, \code{"wgs"},
 #'   \code{"array"}. Recycled if length 1. Default \code{"unknown"}.
 #' @param chr_style Character: chromosome name normalisation in the output.
 #'   \code{"integer"} (1-22, 23=X, 24=Y; default), \code{"ucsc"}

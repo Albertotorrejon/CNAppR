@@ -37,9 +37,9 @@ unnamed, samples are labelled \code{"sample_1"}, \code{"sample_2"}, etc.}
 A data frame with the same rows as \code{reference_file} plus two
   additional columns:
   \describe{
-    \item{gain_freq}{Proportion of samples (0–1) with a weighted-mean
+    \item{gain_freq}{Proportion of samples (0-1) with a weighted-mean
       copy-number ratio \eqn{\ge} \code{gain_thr} in that region.}
-    \item{loss_freq}{Proportion of samples (0–1) with a weighted-mean
+    \item{loss_freq}{Proportion of samples (0-1) with a weighted-mean
       copy-number ratio \eqn{\le} \code{loss_thr} in that region.}
   }
 }
@@ -49,7 +49,7 @@ using the weighted-mean methodology of the original CNApp tool
 (Franch-Expósito et al. 2020, eLife 50267).
 }
 \details{
-For each sample × reference region, the function computes a length-weighted
+For each sample x reference region, the function computes a length-weighted
 mean copy-number ratio from all overlapping copy-number segments:
 \deqn{
   \bar{m} = \frac{\sum_j m_j \cdot w_j}{\sum_j w_j}, \quad

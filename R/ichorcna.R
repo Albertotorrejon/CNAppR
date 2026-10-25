@@ -1,17 +1,17 @@
-# ichorcna.R — IchorCNA integration for low-coverage / liquid biopsy samples
+# ichorcna.R - IchorCNA integration for low-coverage / liquid biopsy samples
 #
 # Adapted from IchorCNA v0.2.0 (Adalsteinsson et al., Nature Communications 2017)
-# Original authors: Gavin Ha, Justin Rhoades — Dana-Farber / Broad Institute
+# Original authors: Gavin Ha, Justin Rhoades - Dana-Farber / Broad Institute
 # Source: https://github.com/broadinstitute/ichorCNA
 # Modifications: functions ported to operate on plain data frames instead of
 # RangedData objects; renamed with .ichor_ prefix to avoid namespace conflicts.
 #
-# Hard dependency: HMMcopy (Bioconductor) — required for the C-compiled Viterbi
+# Hard dependency: HMMcopy (Bioconductor) - required for the C-compiled Viterbi
 # and forward-backward algorithms (.Call("viterbi", PACKAGE="HMMcopy"), etc.).
 # Install with: BiocManager::install("HMMcopy")
 
 
-# ─── pure math helpers (unchanged from IchorCNA) ─────────────────────────────
+# --- pure math helpers (unchanged from IchorCNA) -----------------------------
 
 .ichor_normalize <- function(A) {
   vn <- function(x) x / (sum(x) + (sum(x) == 0))
@@ -214,7 +214,7 @@
 }
 
 
-# ─── HMM parameters ──────────────────────────────────────────────────────────
+# --- HMM parameters ----------------------------------------------------------
 
 .ichor_getTransitionMatrix <- function(K, e, strength) {
   A <- matrix((1 - e[1]) / (K - 1), K, K)
@@ -297,7 +297,7 @@
 }
 
 
-# ─── EM ──────────────────────────────────────────────────────────────────────
+# --- EM ----------------------------------------------------------------------
 
 .ichor_runEM <- function(copy, chr, chrTrain, param, maxiter, verbose = FALSE,
                           estimateNormal     = TRUE, estimatePloidy     = TRUE,
@@ -400,7 +400,7 @@
 }
 
 
-# ─── Viterbi and segmentation ────────────────────────────────────────────────
+# --- Viterbi and segmentation ------------------------------------------------
 
 .ichor_runViterbi <- function(convergedParams, chr) {
   chrs  <- levels(chr)
@@ -494,14 +494,14 @@
                                 estimateInitDist   = TRUE,
                                 logTransform       = FALSE,
                                 verbose            = FALSE) {
-  chr     <- x[[1]]$space   # factor column — replaces space(x[[1]])
+  chr     <- x[[1]]$space   # factor column - replaces space(x[[1]])
   dataMat <- as.matrix(as.data.frame(lapply(x, "[[", dataType)))
 
   if (logTransform) {
     dataMat <- apply(dataMat, 2,
                      function(col) log(col / stats::median(col, na.rm = TRUE)))
   } else {
-    dataMat <- log(2 ^ dataMat)   # log2 → natural log
+    dataMat <- log(2 ^ dataMat)   # log2 -> natural log
   }
   for (i in seq_along(x)) x[[i]]$copy <- dataMat[, i]
 
@@ -550,7 +550,7 @@
 }
 
 
-# ─── GC correction (adapted from IchorCNA correctReadCounts) ─────────────────
+# --- GC correction (adapted from IchorCNA correctReadCounts) -----------------
 
 # Adapted from IchorCNA utils.R correctReadCounts(). Operates on a data frame
 # with columns: space, start, end, reads, gc, (optionally) map.
@@ -611,7 +611,7 @@
 }
 
 
-# ─── CNAppR ↔ IchorCNA adapter ───────────────────────────────────────────────
+# --- CNAppR <-> IchorCNA adapter -----------------------------------------------
 
 # Parse a fixedStep WIG file into a data.frame with columns:
 # chr (UCSC, e.g. "chr1"), start (integer), value (numeric).
@@ -689,7 +689,7 @@
     stringsAsFactors = FALSE
   )
 
-  # ── Load IchorCNA WIG files for GC and mappability ─────────────────────────
+  # -- Load IchorCNA WIG files for GC and mappability -------------------------
   bin_kb   <- as.integer(round(bin_size / 1000L))
   gc_file  <- sprintf("gc_%s_%dkb.wig",  genome_build, bin_kb)
   map_file <- sprintf("map_%s_%dkb.wig", genome_build, bin_kb)
@@ -711,7 +711,7 @@
     message("    GC: ", n_masked, " bins masked (gc=-1), ",
             n_missing, " bins without WIG match")
   } else {
-    message("  WIG not found: ", gc_file, " — falling back to bins RDS gc values")
+    message("  WIG not found: ", gc_file, " - falling back to bins RDS gc values")
     df$gc <- if (!is.null(qc_data$gc)) as.numeric(qc_data$gc) else NULL
   }
 
@@ -726,7 +726,7 @@
     message("    Map: ", n_lowmap, " bins with mappability < 0.9")
   }
 
-  # ── Apply IchorCNA's GC + mappability correction ────────────────────────────
+  # -- Apply IchorCNA's GC + mappability correction ----------------------------
   has_gc <- !is.null(df$gc) && any(!is.na(df$gc) & df$gc > 0)
   if (has_gc) {
     df <- .ichor_correctReadCounts(df, verbose = FALSE)
@@ -746,7 +746,7 @@
 }
 
 
-# ─── main IchorCNA runner ────────────────────────────────────────────────────
+# --- main IchorCNA runner ----------------------------------------------------
 
 # Internal runner called by run_bam_pipeline().
 # Returns a CNAppR_segments object.
@@ -911,7 +911,7 @@
   )
 
   # Apply TF/ploidy correction to bin log2 ratios so they align with segment
-  # means in plot_genome_wide_cna() — identical to IchorCNA's display correction:
+  # means in plot_genome_wide_cna() - identical to IchorCNA's display correction:
   # corrected = raw_log2R - log2(((1-TF)*2 + TF*ploidy) / ploidy)
   qc_plot <- qc_data
   correction <- log2(((1 - tumor_fraction) * 2 + tumor_fraction * ploidy) / ploidy)

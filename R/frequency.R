@@ -23,14 +23,14 @@
 #' @return A data frame with the same rows as \code{reference_file} plus two
 #'   additional columns:
 #'   \describe{
-#'     \item{gain_freq}{Proportion of samples (0–1) with a weighted-mean
+#'     \item{gain_freq}{Proportion of samples (0-1) with a weighted-mean
 #'       copy-number ratio \eqn{\ge} \code{gain_thr} in that region.}
-#'     \item{loss_freq}{Proportion of samples (0–1) with a weighted-mean
+#'     \item{loss_freq}{Proportion of samples (0-1) with a weighted-mean
 #'       copy-number ratio \eqn{\le} \code{loss_thr} in that region.}
 #'   }
 #'
 #' @details
-#' For each sample × reference region, the function computes a length-weighted
+#' For each sample x reference region, the function computes a length-weighted
 #' mean copy-number ratio from all overlapping copy-number segments:
 #' \deqn{
 #'   \bar{m} = \frac{\sum_j m_j \cdot w_j}{\sum_j w_j}, \quad
@@ -66,7 +66,7 @@ compute_region_frequencies <- function(resegmented_list,
                                        loss_thr    = -0.2,
                                        sample_names = NULL) {
 
-  # ── validate inputs ──────────────────────────────────────────────────────────
+  # -- validate inputs ----------------------------------------------------------
   if (!is.list(resegmented_list))
     stop("'resegmented_list' must be a list of data frames.")
 
@@ -77,7 +77,7 @@ compute_region_frequencies <- function(resegmented_list,
   }
   n <- length(resegmented_list)
 
-  # ── load reference file ──────────────────────────────────────────────────────
+  # -- load reference file ------------------------------------------------------
   if (is.character(reference_file) && length(reference_file) == 1L) {
     reference_file <- utils::read.table(reference_file, header = FALSE,
                                         sep = "\t", stringsAsFactors = FALSE)
@@ -105,7 +105,7 @@ compute_region_frequencies <- function(resegmented_list,
   # Pre-group reference regions by chromosome (done once, outside sample loop)
   ref_by_chr <- split(seq_len(nr), reference_file$chr)
 
-  # ── per-sample loop ──────────────────────────────────────────────────────────
+  # -- per-sample loop ----------------------------------------------------------
   for (si in seq_len(n)) {
     seg <- resegmented_list[[si]]
     if (is.null(seg) || nrow(seg) == 0L) next
@@ -117,7 +117,7 @@ compute_region_frequencies <- function(resegmented_list,
     # Pre-group segments by chromosome
     seg_by_chr <- split(seq_len(nrow(seg)), seg$chr_c)
 
-    # ── per-chromosome vectorised overlap ────────────────────────────────────
+    # -- per-chromosome vectorised overlap ------------------------------------
     for (ch in intersect(names(ref_by_chr), names(seg_by_chr))) {
       ri_idx <- ref_by_chr[[ch]]
       si_idx <- seg_by_chr[[ch]]
@@ -137,7 +137,7 @@ compute_region_frequencies <- function(resegmented_list,
       s_end   <- seg$loc.end[si_idx]
       s_mean  <- seg$seg.mean[si_idx]
 
-      # Overlap matrix: m regions × k segments (all in C via outer)
+      # Overlap matrix: m regions x k segments (all in C via outer)
       ov_len <- pmax(
         outer(r_end, s_end, pmin) - outer(r_start, s_start, pmax),
         0
@@ -160,7 +160,7 @@ compute_region_frequencies <- function(resegmented_list,
     }
   }
 
-  # ── assemble output ──────────────────────────────────────────────────────────
+  # -- assemble output ----------------------------------------------------------
   out           <- reference_file
   out$gain_freq <- gain_counts / n
   out$loss_freq <- loss_counts / n

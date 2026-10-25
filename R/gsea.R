@@ -1,7 +1,7 @@
-# ─── internal helpers ────────────────────────────────────────────────────────
+# --- internal helpers --------------------------------------------------------
 
 # Retrieves gene sets from MSigDB via msigdbr, handles API differences across
-# msigdbr versions (≥7.5.1 uses category=; 10.0.0+ uses collection=).
+# msigdbr versions (>=7.5.1 uses category=; 10.0.0+ uses collection=).
 .build_msigdb_genesets <- function(collections, species) {
   if (!requireNamespace("msigdbr", quietly = TRUE))
     stop("Package 'msigdbr' is required.\nInstall with: install.packages('msigdbr')")
@@ -27,7 +27,7 @@
       next
     }
 
-    # Column names differ across msigdbr versions — pick defensively
+    # Column names differ across msigdbr versions - pick defensively
     name_col <- intersect(c("gs_name", "gs_id"), colnames(db))[1L]
     sym_col  <- intersect(c("gene_symbol", "human_gene_symbol"), colnames(db))[1L]
 
@@ -82,7 +82,7 @@
       values = c(Amplification = "#d73027", Deletion = "#4575b4")
     ) +
     ggplot2::labs(
-      title    = sprintf("GSEA — top %d pathways by |NES|", nrow(top)),
+      title    = sprintf("GSEA - top %d pathways by |NES|", nrow(top)),
       subtitle = coll_str,
       x        = "Normalized Enrichment Score (NES)",
       y        = NULL,
@@ -115,7 +115,7 @@
 }
 
 
-# ─── build_gene_ranks ────────────────────────────────────────────────────────
+# --- build_gene_ranks --------------------------------------------------------
 
 #' Build a gene rank vector from annotated CNA segments
 #'
@@ -208,7 +208,7 @@ build_gene_ranks <- function(annotated_segs, score_col = "seg.mean",
 }
 
 
-# ─── run_gsea ────────────────────────────────────────────────────────────────
+# --- run_gsea ----------------------------------------------------------------
 
 #' Gene Set Enrichment Analysis on CNA-ranked genes
 #'
@@ -256,10 +256,10 @@ build_gene_ranks <- function(annotated_segs, score_col = "seg.mean",
 #'
 #' **Recommended pipeline:**
 #' \enumerate{
-#'   \item resegment_sample() → per-sample CNA segments
-#'   \item annotate_cna_genes() → add gene symbols per segment
-#'   \item build_gene_ranks() → named numeric rank vector
-#'   \item run_gsea() → enrichment results + plot
+#'   \item resegment_sample() -> per-sample CNA segments
+#'   \item annotate_cna_genes() -> add gene symbols per segment
+#'   \item build_gene_ranks() -> named numeric rank vector
+#'   \item run_gsea() -> enrichment results + plot
 #' }
 #'
 #' **Stratified analysis:** pass gene_ranks as a named list (one vector per
@@ -307,7 +307,7 @@ run_gsea <- function(gene_ranks,
     stop("Package 'msigdbr' is required.\n",
          "Install with: install.packages('msigdbr')")
 
-  # ── validate gene_ranks ──────────────────────────────────────────────────
+  # -- validate gene_ranks --------------------------------------------------
   is_list_input <- is.list(gene_ranks) && !is.data.frame(gene_ranks)
 
   if (!is_list_input) {
@@ -319,7 +319,7 @@ run_gsea <- function(gene_ranks,
       stop("When gene_ranks is a list, it must be named (one entry per sample).")
   }
 
-  # ── fetch gene sets ──────────────────────────────────────────────────────
+  # -- fetch gene sets ------------------------------------------------------
   message("Fetching gene sets from MSigDB (",
           paste(collections, collapse = ", "), ")...")
   gs_list <- .build_msigdb_genesets(collections, species)
@@ -330,7 +330,7 @@ run_gsea <- function(gene_ranks,
 
   message("  Gene sets loaded: ", length(gs_list))
 
-  # ── stratified mode ──────────────────────────────────────────────────────
+  # -- stratified mode ------------------------------------------------------
   if (is_list_input && !is.null(clinical_groups)) {
     groups <- unique(as.character(clinical_groups))
     all_res <- vector("list", length(groups))
@@ -374,7 +374,7 @@ run_gsea <- function(gene_ranks,
     return(list(results = combined, significant = sig, plot = p))
   }
 
-  # ── single-vector mode ───────────────────────────────────────────────────
+  # -- single-vector mode ---------------------------------------------------
   if (is_list_input) {
     # List provided but no clinical_groups: pool all samples (average per gene)
     warning("gene_ranks is a list but clinical_groups is NULL. ",

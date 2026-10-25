@@ -17,14 +17,14 @@ build_pon(
   use_antitarget = FALSE,
   antitarget_bin_size = 100000L,
   split_targets = FALSE,
-  target_bin_size = 267L,
+  target_bin_size = 1000L,
   output_file = NULL
 )
 }
 \arguments{
 \item{bam_paths}{Character vector of paths to normal BAM files.  Each must
 have a corresponding .bai index.  Use at least 5 normals for stable
-medians; 10–20 is typical.}
+medians; 10-20 is typical.}
 
 \item{genome_build}{Character "hg19" or "hg38" (default "hg19").}
 
@@ -36,6 +36,14 @@ medians; 10–20 is typical.}
 
 \item{targets_bed}{Character path to the capture kit BED (WES only).
 When NULL the standard exome BED bundled in the package is used.}
+
+\item{capture_kit}{Character name of the capture kit used for WES.
+When provided, automatically selects the corresponding BED file bundled
+in inst/extdata/ for the specified genome_build. Supported values:
+"standard" (default), "agilent_v7", "agilent_v6", "illumina_truseq",
+"twist_exome", "idt_xgen". If the kit-specific BED is not bundled,
+falls back to the standard exome BED with a warning. Ignored when
+targets_bed is explicitly provided. Default NULL.}
 
 \item{min_mapq}{Integer minimum mapping quality (default 20).}
 
@@ -49,6 +57,19 @@ gc_correction = TRUE; default FALSE).}
 \item{antitarget_bin_size}{Integer bin size for antitarget regions in bp
 (default 100000).}
 
+\item{split_targets}{Logical or NULL. Only used when experiment_type = "wes".
+If TRUE, splits each capture region into sub-bins of approximately
+target_bin_size bp, mirroring CNVkit's \code{target --split} command.
+This increases resolution within large exons and gives the GC-LOESS fit
+more data points, improving GC correction accuracy.
+NULL (default) means automatic: TRUE for WES, FALSE for WGS.}
+
+\item{target_bin_size}{Integer target sub-bin size in bp when
+split_targets = TRUE (default 1000 bp).  Exons smaller than this value
+are kept as single bins. The original CNVkit default (267 bp) creates
+exon-level bins and causes CBS over-segmentation (~2500 segments) in WES;
+1000 bp gives a more balanced segmentation comparable to CNVkit's output.}
+
 \item{output_file}{Character path to save the PoN as an RDS file (optional).
 Reload later with pon <- readRDS(output_file).}
 }
@@ -59,7 +80,7 @@ A named list (invisibly) containing:
     \item{median_log2}{Numeric vector, per-bin median log2 across normals}
     \item{n_samples}{Number of normal BAMs processed}
     \item{genome_build, experiment_type, sequencing_type, gc_correction}{
-      Parameters used — must match the tumour call}
+      Parameters used - must match the tumour call}
     \item{created}{POSIXct timestamp}
   }
 }
@@ -69,7 +90,7 @@ GC-correction pipeline used by read_bam_qc(), then computes a per-bin
 median log2 that represents the expected diploid baseline for the protocol.
 The resulting PoN object can be passed to read_bam_qc(pon = ...) or
 run_bam_pipeline(pon = ...) to remove systematic protocol-specific
-artefacts — wave patterns, GC bias, consistently poorly-captured exons —
+artefacts - wave patterns, GC bias, consistently poorly-captured exons -
 that are not removed by single-sample GC correction alone.
 }
 \examples{

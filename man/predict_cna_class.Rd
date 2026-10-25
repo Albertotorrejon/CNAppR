@@ -2,25 +2,34 @@
 % Please edit documentation in R/classifier.R
 \name{predict_cna_class}
 \alias{predict_cna_class}
-\title{Predict CNA-Based Classification}
+\title{Predict CNA-Based Sample Classification}
 \usage{
-predict_cna_class(scores, model_name)
+predict_cna_class(scores, model)
 }
 \arguments{
-\item{scores}{Data frame with FCS, BCS, GCS scores (from calculate_cna_scores()).}
+\item{scores}{Data frame of CNA scores for the samples to predict. Must
+contain the same feature columns used during training.}
 
-\item{model_name}{Character model file name.}
+\item{model}{A \code{randomForest} object (output of
+\code{train_cna_classifier()$model} or loaded with
+\code{load_prediction_model()}).}
 }
 \value{
-Data frame with:
-  - ID: sample identifier
-  - predicted_class: predicted classification
-  - probability: prediction probability (if available from model)
+A data frame with columns:
+  \describe{
+    \item{ID}{Sample identifier (from row names of \code{scores}).}
+    \item{predicted_class}{Predicted class label.}
+    \item{...}{One column per class with the predicted probability.}
+  }
 }
 \description{
-Uses a random forest model to predict sample classification from CNA scores.
+Applies a trained Random Forest model to new samples and returns predicted
+class labels and class probabilities.
 }
-\details{
-Returns NULL if model cannot be loaded.
+\examples{
+\dontrun{
+  preds <- predict_cna_class(test_scores, mod$model)
+  head(preds)
 }
-\keyword{internal}
+
+}

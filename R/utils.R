@@ -223,7 +223,7 @@ prepare_clinical_variables <- function(data, exclude_cols = c("BAF", "purity"), 
 #' @param data Main data frame (from read_cna_file()).
 #' @param annot_filepath Character path to annotation file (tab-separated,
 #'   with header). Must contain a column named by sample_var.
-#' @param sep Character field separator for annotation file (default "\t").
+#' @param sep Character field separator for annotation file (default \code{"\t"}).
 #' @param dec Character decimal separator for annotation file (default ".").
 #' @param sample_var Character name of sample ID column in both data frames
 #'   (default "ID").
@@ -263,7 +263,7 @@ prepare_annotation_data <- function(data, annot_filepath, sep = "\t",
             if (length(extra) > 3L) paste0(" ... (+", length(extra) - 3L, " more)") else "")
 
   # Annotation columns that overlap existing data columns (other than sample_var)
-  # are replaced by the annotation values — drop them from data first to avoid
+  # are replaced by the annotation values - drop them from data first to avoid
   # .x / .y suffix collisions from merge().
   annot_new_cols <- setdiff(colnames(annot_df), sample_var)
   data_clean <- data[, setdiff(colnames(data), annot_new_cols), drop = FALSE]

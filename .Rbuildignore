@@ -7,3 +7,6 @@
 ^inst/models/datos
 ^inst/models/demo
 ^inst/extdata/manage_cytobands\.R$
+^\.github$
+^Dockerfile$
+^\.dockerignore$

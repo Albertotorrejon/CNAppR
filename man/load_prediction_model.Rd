@@ -2,22 +2,27 @@
 % Please edit documentation in R/classifier.R
 \name{load_prediction_model}
 \alias{load_prediction_model}
-\title{Load Prediction Model}
+\title{Load a Saved Random Forest Model}
 \usage{
-load_prediction_model(model_name)
+load_prediction_model(path)
 }
 \arguments{
-\item{model_name}{Character model file name (without .RData extension).
-Should be located in inst/models/ directory.}
+\item{path}{Character path to the model file (\code{.rds} or \code{.RData}).}
 }
 \value{
-A random forest model object.
+A \code{randomForest} object.
 }
 \description{
-Loads a pre-trained random forest model for CNA-based classification.
+Loads a \code{randomForest} model previously saved with \code{saveRDS()} or
+\code{save()}.
 }
-\details{
-Models should be trained and saved as .RData files containing a
-variable named "model_cms" or equivalent.
+\examples{
+\dontrun{
+  # Save after training
+  saveRDS(mod$model, "my_model.rds")
+  # Load in a new session
+  model <- load_prediction_model("my_model.rds")
+  preds <- predict_cna_class(scores, model)
 }
-\keyword{internal}
+
+}

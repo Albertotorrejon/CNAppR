@@ -4,10 +4,10 @@
 \alias{calculate_cna_scores}
 \title{Calculate CNA Scores}
 \usage{
-calculate_cna_scores(resegmented_list, sample_names = NULL)
+calculate_cna_scores(reseg_list, sample_names = NULL)
 }
 \arguments{
-\item{resegmented_list}{List of re-segmented data frames, one per sample (output from resegment_sample()).}
+\item{reseg_list}{Named list of re-segmented data frames, one per sample (output from resegment_sample()).}
 
 \item{sample_names}{Character vector of sample IDs (optional; inferred from names if list is named).}
 }
@@ -28,10 +28,11 @@ If all scores are 0, normalization is skipped.
 }
 \examples{
 \dontrun{
-  reseg_list <- lapply(c("sample_1", "sample_2"), function(id) {
+  sample_ids <- unique(as.character(data$ID))
+  reseg_list <- lapply(sample_ids, function(id) {
     resegment_sample(data, sample_id = id)
   })
-  names(reseg_list) <- c("sample_1", "sample_2")
+  names(reseg_list) <- sample_ids
 
   scores <- calculate_cna_scores(reseg_list)
   head(scores)

@@ -41,11 +41,17 @@ suitable as input to run_gsea(). Each gene receives the score of the CNA
 segment it overlaps; when a gene appears in multiple segments the value
 with the highest absolute magnitude is kept by default.
 }
+\details{
+By default only focal CNAs are used, as the relationship between copy
+number dosage and gene expression is better established for sub-arm
+alterations than for broad (arm-level or chromosomal) events.
+}
 \examples{
 \dontrun{
   reseg  <- resegment_sample(data, sample_id = "s1")
   ann    <- annotate_cna_genes(reseg)
-  ranks  <- build_gene_ranks(ann)
+  ranks  <- build_gene_ranks(ann)                          # focal only (default)
+  ranks  <- build_gene_ranks(ann, cna_type = c("focal", "arm"))  # focal + arm
   gsea_r <- run_gsea(ranks, collections = "H")
 }
 

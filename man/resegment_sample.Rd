@@ -7,12 +7,14 @@
 resegment_sample(
   data,
   sample_id,
+  sample_type = c("solid_tumor", "liquid_biopsy"),
+  purity = NULL,
   min_length = 1e+05,
   max_dist_segm = 1e+06,
   percent_dist = 2,
-  dev_btw_segs = 0.16,
-  dev_tozero = 0.16,
-  dev_baf = 0.1,
+  dev_btw_segs = NULL,
+  dev_tozero = NULL,
+  dev_baf = NULL,
   low_gain = 0.2,
   normal_gain = round(log2(3/2), 2),
   high_gain = round(log2(4/2), 2),
@@ -25,14 +27,27 @@ resegment_sample(
   focal_percent_medium = 0.15,
   focal_percent_high = 0.3,
   min_baf = 0.2,
-  acrocentric = FALSE,
+  acrocentric = TRUE,
   skip_resegmentation = FALSE
 )
 }
 \arguments{
 \item{data}{Data frame with columns: ID, chr, loc.start, loc.end, seg.mean, [BAF, purity].}
 
-\item{sample_id}{Character sample identifier to process.}
+\item{sample_id}{Character. A \strong{single} sample identifier present in
+\code{data$ID}. Passing a vector of IDs will cause an error; use
+\code{lapply()} to process multiple samples (see Details).}
+
+\item{sample_type}{Character. Either "solid_tumor" (default) or "liquid_biopsy".
+Controls default thresholds when purity is not provided. In liquid biopsy
+mode, dev_tozero and dev_btw_segs are lowered to 0.05 and min_baf to 0.1
+to account for dampened log2 ratios at low tumor fractions.}
+
+\item{purity}{Numeric tumor purity or tumor fraction (0-1). When provided,
+dev_tozero and dev_btw_segs are calculated automatically as
+|log2(1 - purity/2)| / 3, matching the minimum detectable heterozygous
+deletion at that purity. Overrides sample_type defaults.
+Use the tumor fraction estimated by ichorCNA for liquid biopsy samples.}
 
 \item{min_length}{Numeric minimum segment length in bp (default 100000).}
 
@@ -70,13 +85,65 @@ resegment_sample(
 
 \item{min_baf}{Numeric minimum BAF for CN-LOH detection (default 0.2).}
 
-\item{acrocentric}{Logical whether to ignore p arms of chromosomes 13,14,15,21,22 (default FALSE).}
+\item{acrocentric}{Logical whether to ignore p arms of chromosomes 13,14,15,21,22 (default TRUE).}
 
 \item{skip_resegmentation}{Logical whether to skip re-segmentation (default FALSE).}
 }
 \value{
-Data frame with additional columns: score, classified, type, intensity, weight, comments
+Data frame with additional columns: score, classified, type,
+  intensity, weight, comments.
 }
 \description{
-Re-segment Copy Number Data
+Processes a single sample from a multi-sample CNA table. To process an
+entire cohort, iterate over sample IDs with \code{lapply()} - see Details.
+}
+\details{
+**Processing a single sample**
+
+\code{resegment_sample()} is designed to process one sample per call so
+that a runtime error in one sample does not abort the rest of the cohort.
+Passing a vector to \code{sample_id} will fail - the function internally
+filters \code{data[data$ID == sample_id, ]} and expects exactly one unique
+identifier.
+
+**Processing a full cohort (recommended pattern)**
+
+Use \code{lapply()} wrapping the call in \code{tryCatch()} so that
+problematic samples are skipped and reported instead of crashing the run:
+
+\preformatted{
+sample_ids <- unique(data$ID)
+
+reseg_list <- lapply(sample_ids, function(id) {
+  tryCatch(
+    resegment_sample(data, sample_id = id),
+    error = function(e) {
+      warning("Skipping sample ", id, ": ", conditionMessage(e))
+      NULL
+    }
+  )
+})
+names(reseg_list) <- sample_ids
+
+# Remove samples that failed
+reseg_list <- Filter(Negate(is.null), reseg_list)
+}
+
+**Parallel processing (large cohorts)**
+
+For cohorts with hundreds of samples, use \code{BiocParallel}:
+
+\preformatted{
+library(BiocParallel)
+register(MulticoreParam(workers = 4))   # or SnowParam() on Windows
+
+reseg_list <- bplapply(sample_ids, function(id) {
+  tryCatch(
+    resegment_sample(data, sample_id = id),
+    error = function(e) NULL
+  )
+})
+names(reseg_list) <- sample_ids
+reseg_list <- Filter(Negate(is.null), reseg_list)
+}
 }
