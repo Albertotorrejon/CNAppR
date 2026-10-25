@@ -30,6 +30,15 @@ BiocManager::install("BSgenome.Hsapiens.UCSC.hg19")
 BiocManager::install("BSgenome.Hsapiens.UCSC.hg38")
 ```
 
+### Docker
+
+A ready-to-use image with R 4.4, Bioconductor 3.20 and every optional dependency (hg38 reference included, ~9 GB):
+
+```bash
+docker build -t cnappr .
+docker run --rm -it -v "$PWD":/data cnappr   # opens R with CNAppR installed; your files are in /data
+```
+
 ---
 
 ## BAM pipeline

@@ -1,0 +1,3 @@
+# The image installs CNAppR from GitHub, so nothing from this folder is needed
+# (it also keeps local data such as inst/models/datos TFM out of the build).
+*
