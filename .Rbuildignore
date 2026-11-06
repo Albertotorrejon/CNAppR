@@ -10,3 +10,4 @@
 ^\.github$
 ^Dockerfile$
 ^\.dockerignore$
+^docs$
